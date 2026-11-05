@@ -1,0 +1,25 @@
+---
+import '../styles/global.css';
+import Navigation from '../components/Navigation';
+import { club } from '../config/club';
+interface Props { title: string; description?: string }
+const { title, description = club.description } = Astro.props;
+const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site) : undefined;
+---
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="description" content={description}/><meta name="theme-color" content="#08724b"/>
+<title>{title} | {club.name}</title>
+<link rel="icon" type="image/svg+xml" href="/crest.svg"/>
+{canonical && <link rel="canonical" href={canonical}/>}
+<meta property="og:title" content={`${title} | ${club.name}`}/><meta property="og:description" content={description}/><meta property="og:type" content="website"/>
+</head>
+<body>
+<a class="skip-link" href="#contenuto">Vai al contenuto</a>
+<div class="topbar"><div class="container">IL NOSTRO CALCIO, LA NOSTRA COMUNITÀ <span>Portale in costruzione · Fase 1</span></div></div>
+<header class="site-header"><div class="container header-inner"><a href="/" class="brand" aria-label={`${club.name}, homepage`}><img src="/crest.svg" alt="" width="48" height="56"/><span>SAN LORENZO<small>MONTICELLI</small></span></a><Navigation pathname={Astro.url.pathname} client:load/></div></header>
+<main id="contenuto"><slot/></main>
+<footer class="site-footer"><div class="container footer-inner"><a href="/" class="brand"><img src="/crest.svg" alt="" width="40" height="48"/><span>SAN LORENZO<small>MONTICELLI</small></span></a><p>Il futuro si costruisce insieme.</p><span>Identità provvisoria · Nessun dato personale raccolto</span></div></footer>
+</body></html>
