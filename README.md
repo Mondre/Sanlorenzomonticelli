@@ -1,95 +1,94 @@
 # San Lorenzo Monticelli
 
-Portale calcistico — design system e fondazione backend. Colori verde e oro aggiornati; lo stemma originale è incluso in `public/logo-societa.png` e selezionato automaticamente dalla build. Nessun risultato sportivo o notizia fittizia è pubblicato.
+Portale calcistico con Astro, React, TypeScript, Tailwind, Netlify Functions, Better Auth, Drizzle e Neon PostgreSQL. Nessun Firebase o Supabase. Logo ufficiale in `public/logo-societa.png`, colori verde e oro.
 
-## Avvio
+## Cosa è implementato
 
-Node.js 24 e npm. Dalla cartella del repository:
+- Homepage con feed di notizie, ultimo risultato e prossime partite letti dal database.
+- `/notizie`: ricerca, filtro categoria, paginazione e articoli con URL stabili. I contenuti sono renderizzati sul server. Le bozze e le pubblicazioni future non sono pubbliche.
+- `/partite`: calendario, risultati, filtri, paginazione e scheda partita con cronaca, stato e indicazioni Google Maps.
+- `/classifiche`: competizione e stagione selezionabili, punti dai risultati terminati e rettifiche. L’ordine a parità di punti è indicativo, da confrontare con i regolamenti ufficiali.
+- `/admin`: accesso email/password, sessioni e permessi server; configurazione iniziale sportiva; notizie con bozze/pubblicazione/programmazione/modifica/eliminazione confermata; creazione partite e aggiornamento di stato, risultato, campo e cronaca.
+- Configurazione iniziale: creazione/modifica/disattivazione/ordinamento categorie; creazione stagioni, competizioni e partecipanti; creazione campi sportivi. Le squadre con stesso nome, categoria e stagione vengono riutilizzate.
+- Audit delle scritture, controllo di versione per notizie e partite, validazione Zod, query parametrizzate, protezione origine/CSRF per le mutazioni e limite di 64 KiB ai payload JSON.
+
+Il codice è verificato con PostgreSQL in memoria nei test. Il collegamento al progetto Neon e il deploy remoto del proprietario non sono stati verificati in questa sessione. Senza credenziali o migrazioni applicate, le sezioni dinamiche mostrano indisponibilità e restituiscono 503; non usano dati finti come alternativa.
+
+## Avvio e verifiche
+
+Node.js 24 (vedere `.node-version`). Dalla cartella del repository:
 
 ```sh
 npm ci
 npm run check
 npm run build
+npm run test:unit
 npm run dev
 ```
 
-Nel cloud con home non scrivibile, anteporre `ASTRO_TELEMETRY_DISABLED=1` ai comandi Astro. Aprire l’indirizzo indicato da Astro. Le pagine disponibili sono `/`, `/design-system` e la pagina 404. Menu mobile e cambio tema sono componenti React; il tema dura per la pagina corrente e segue inizialmente la preferenza di sistema. Nessun localStorage, servizio esterno o database locale viene usato.
+Nel cloud con home non scrivibile, esportare `ASTRO_TELEMETRY_DISABLED=1` prima dei comandi Astro. Astro 7 avvia il server in background; per un server avviato da te usare `npx astro dev stop` per arrestarlo. Ogni task cloud è già isolato: usare il checkout esistente senza creare worktree, salvo richiesta esplicita.
 
-Con il server attivo, in un secondo terminale:
-
-```sh
-TEST_BASE_URL=http://127.0.0.1:4321 npm test
-```
-
-I test HTTP verificano rendering, stato 404 e asset locale. Non attestano conformità WCAG: occorrono verifiche manuali con tastiera, screen reader e contrasto dopo la personalizzazione.
-
-## File e responsabilità
-
-- `src/config/club.ts`: identità societaria provvisoria.
-- `src/styles/global.css`: token di colore, tipografia, spaziatura, temi e componenti.
-- `src/layouts/BaseLayout.astro`: struttura HTML, SEO, header e footer.
-- `src/components/Navigation.tsx`: menu e tema con Lucide React.
-- `src/pages/`: pagine statiche Astro.
-- `src/server/`: confine per servizi e autorizzazioni backend futuri.
-- `netlify/functions/`: destinazione delle API Netlify future.
-- `drizzle/`: destinazione delle migrazioni future.
-- `tests/`: verifiche HTTP.
-- `docs/project-brief.md`: requisiti originali del progetto.
-- `docs/architecture.md`: decisioni, verifiche di compatibilità e piano successivo.
-- `.env.example`, `.node-version`, `tsconfig.json`, `astro.config.mjs`, `netlify.toml`, `package.json`, `package-lock.json`, `.gitignore`: configurazione e installazione riproducibile.
-- `public/crest.svg`, `public/pitch.svg`: asset originali provvisori senza fotografie o dati di minori.
-
-## Netlify
-
-Collegare il repository e usare `netlify.toml`: Node 24, comando `npm run check && npm run build`, pubblicazione `dist`. Il dominio personalizzato e il certificato HTTPS si configurano nel pannello Netlify, senza modificare il codice. Impostare `SITE_URL` sull’origine HTTPS definitiva per attivare i canonical SEO. Dopo il primo deploy verificare home, design system, 404 e asset. Il deploy remoto non è stato eseguito durante la fase 1.
-
-L’adattatore ufficiale è installato per le successive route dinamiche; al momento l’output è statico. Sono presenti due Functions pubbliche di sola lettura per categorie e classifiche; vedere la sezione backend sotto.
-
-## Segreti e dati
-
-Le variabili elencate in `.env.example` sono un promemoria per le fasi successive, non requisiti per la build attuale. Non inserire valori in Git, nelle variabili `PUBLIC_*` o nel browser. Driver Neon e Drizzle sono installati; Better Auth è implementato, ma richiede configurazione e bootstrap per attivare gli accessi. DATABASE_URL serve per API e migrazioni, ma non per build e pagine statiche. Le credenziali sono utilizzate esclusivamente dal backend.
-
-## Stato e prossime fasi
-
-Implementato: fondazione Astro/React/TypeScript/Tailwind, identità configurabile nel sorgente, componenti e layout responsive, pagina iniziale senza mock, controlli di build e test HTTP.
-
-Da implementare: collegamento remoto Neon e attivazione degli accessi, contenuti dinamici, match center, pannello `/admin`, iscrizioni, media e pagine legali. Non sono presenti pulsanti di salvataggio o login simulati. La homepage completa con foto, risultati, notizie e sponsor appartiene alle successive fasi collegate ai dati reali.
-
-Il portale non è ancora una piattaforma di produzione completa e non dichiara conformità GDPR o WCAG certificata.
-
-## Verifiche eseguite nella fase 1
-
-- `npm run check`: 9 file, zero errori e avvisi.
-- `npm run build`: completata, asset statici e funzione SSR dell’adattatore generati.
-- Test HTTP sul server Astro: 4 eseguiti, 4 passati.
-- `npm audit --omit=dev --audit-level=high`: superato come soglia, ma restano 16 segnalazioni (3 basse, 13 moderate) nelle dipendenze transitive Netlify. Non si applica un downgrade incompatibile per silenziarle. Riesaminare prima del deploy.
-- Nessun test browser automatizzato, audit WCAG completo, collegamento Neon o deploy remoto eseguito.
-
-
-## Aggiornamento: identità e fondazione backend
-
-Palette aggiornata a verde scuro e oro. Per usare lo stemma originale caricare **il file originale** in `public/logo-societa.png` (sono accettati anche `.jpg`, `.jpeg` e `.webp`) e fare commit/push. La build lo rileva automaticamente e lo utilizza in header, hero, footer e favicon. Finché il file manca rimane lo stemma provvisorio; l’immagine mostrata nella chat non è risultata disponibile come file nel workspace. Non è stata ricreata né modificata con strumenti generativi.
-
-Aggiunti schema Drizzle di 21 tabelle, migrazione iniziale, calcolo classifiche, seed dimostrativo esplicito e API pubbliche Netlify di sola lettura:
-
-- `GET /.netlify/functions/categories`: categorie attive ordinate, senza dati personali.
-- `GET /.netlify/functions/standings?competition=<UUID>`: classifica associata alla competizione e alla stagione, rettifiche incluse. L’ordinamento a parità di punti è indicativo e non sostituisce i regolamenti ufficiali.
-
-Senza database configurato le API rispondono 503, senza esporre credenziali o dettagli interni. Nessun endpoint amministrativo è stato attivato. La homepage resta statica e non visualizza i dati di queste API finché non sarà completata la fase pagine pubbliche.
-
-### Collegare Neon
-
-Creare un progetto Neon e configurare `DATABASE_URL` **solo nel backend** delle impostazioni Netlify (Functions) e nel terminale sicuro dove si eseguono le migrazioni. Non incollare credenziali in chat o committare `.env`. Il nome host Neon effettivo dovrà essere consentito nella rete dell’ambiente cloud prima dei test remoti. Non servono variabili `PUBLIC_`.
+Con Astro attivo:
 
 ```sh
-npm run db:generate   # genera SQL dallo schema, senza connessione
-npm run db:migrate    # richiede DATABASE_URL; esegue migrazioni versionate
-npm run test:unit     # classifiche + migrazioni su PostgreSQL WASM in memoria
+TEST_BASE_URL=http://127.0.0.1:4321 node --test tests/routes.test.mjs
 ```
 
-Le migrazioni non vengono eseguite automaticamente a ogni deploy. Lo schema contiene l’identità utenti e i permessi di dominio; sessioni/account/verifiche Better Auth saranno aggiunti nella fase autenticazione. I permessi non sono ancora applicati a CRUD amministrativi perché tali API non esistono ancora.
+`npm test` esegue test unitari/database e test HTTP, perciò richiede il server e TEST_BASE_URL. I test PostgreSQL usano PGlite temporaneo in memoria, esclusivamente come dipendenza di sviluppo. Per verificare il routing delle Functions e i loro contesti usare Netlify Dev o un deploy di test con variabili backend configurate. Le verifiche locali non attestano una prova su Neon remoto.
 
-### Seed separato
+## Collegamento a Neon e attivazione dell’area riservata
+
+1. Creare un progetto Neon PostgreSQL. Configurare `DATABASE_URL` solo nel backend Netlify e nel terminale sicuro usato per le migrazioni. Consentire l’host Neon effettivo nella rete dell’ambiente cloud se si eseguono qui query remote.
+2. Configurare `BETTER_AUTH_URL` sull’origine HTTPS esatta del sito, senza percorsi, e `BETTER_AUTH_SECRET` con un segreto casuale di almeno 32 caratteri. Generarlo sul proprio computer, ad esempio con `openssl rand -base64 48`, e inserirlo nelle impostazioni sicure. Non inserire segreti in chat, Git o variabili `PUBLIC_*`.
+3. Impostare nel terminale sicuro DATABASE_URL ed eseguire:
+
+```sh
+npm run db:migrate
+```
+
+Le migrazioni versionate comprendono schema di dominio, tabelle Better Auth e `updated_at` delle partite per i controlli di concorrenza. La build non applica automaticamente migrazioni. `npm run db:generate` serve agli sviluppatori per generare nuove migrazioni dallo schema, senza connessione al database.
+
+4. Configurare temporaneamente `BOOTSTRAP_ADMIN_NAME`, `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD` nel terminale sicuro e invocare:
+
+```sh
+npm run admin:bootstrap
+```
+
+Password da 14 a 128 caratteri. Non scrivere password nei comandi salvati nella cronologia: usare il gestore sicuro delle variabili dell’ambiente/terminale. Il bootstrap usa scrypt, query parametrizzate, lock transazionale e audit e impedisce una seconda inizializzazione. Non è un endpoint web. Rimuovere successivamente le variabili BOOTSTRAP_ADMIN_*.
+
+5. Eseguire il deploy e accedere a `/admin`. Verificare login/logout sul dominio HTTPS reale.
+6. Aprire **Configurazione sportiva**: creare categorie, competizioni/stagioni/partecipanti ed eventuali campi. Quindi utilizzare **Notizie** e **Partite e risultati**. Non è richiesto il seed per configurare la società reale.
+
+## Ruoli e sicurezza
+
+- `super_admin`: accesso completo.
+- `admin`: contenuti e configurazione sportiva, non gestione utenti.
+- `category_manager`: contenuti delle sole categorie assegnate.
+- `editor`: notizie entro gli scope assegnati.
+
+I permessi sono riletti sul server; la loro revoca vale dalla richiesta successiva. Le API verificano sia lo scope originale sia il contenuto da modificare e rifiutano campi estranei. I conteggi globali della dashboard sono riservati agli amministratori globali. La registrazione pubblica è disabilitata; cookie HttpOnly/Secure/SameSite=Lax su HTTPS, sessioni PostgreSQL di 8 ore, nessun token in localStorage. Better Auth mantiene i controlli di origine. Il rate limiting del login è persistente; l’IP proviene dal contesto Netlify, non dalle intestazioni liberamente inviate dal client.
+
+L’editor attuale è di **testo semplice**: React e Astro eseguono l’escaping, senza rendering HTML arbitrario. Non sono ancora implementati editor rich text e upload immagini. Le API pubbliche non esportano dati dei giocatori o richieste personali; la creazione di categorie non abilita la pubblicazione delle rose, che rimane disattivata. Pianificare conservazione e cancellazione di sessioni, contatori e audit con la società. Nessuna certificazione GDPR o WCAG è dichiarata.
+
+## Pubblicazione su Netlify
+
+Collegare il repository al branch `main`. `netlify.toml` imposta Node 24, build `npm run check && npm run build`, output `dist` e Functions in `netlify/functions`. Impostare `SITE_URL` sull’origine HTTPS definitiva per canonical e condivisione WhatsApp. Dominio e certificato HTTPS si configurano dal pannello Netlify, senza modifiche al codice.
+
+Per questa versione con pagine dinamiche e API serve il deploy **da repository o CLI Netlify con Functions**. Il vecchio ZIP statico della fase 1 non contiene i nuovi servizi. Dopo il deploy verificare home, notizie, calendario, classifiche, pagina inesistente e login sul sito reale. Le query di pagina e i salvataggi leggono il database a runtime: pubblicare un articolo non richiede una nuova build.
+
+## API principali
+
+- `/api/auth/*`: Better Auth.
+- `/api/admin/dashboard`: riepilogo autenticato.
+- `/api/admin/news`: GET paginata, POST creazione, PUT modifica, DELETE eliminazione.
+- `/api/admin/matches`: GET paginata, POST creazione, PUT aggiornamento.
+- `/api/admin/setup`: configurazione sportiva, solo amministratori globali.
+- `/api/club-feed`: GET pubblica per homepage.
+- `/.netlify/functions/categories` e `/.netlify/functions/standings`: letture pubbliche iniziali.
+
+Nessuna credenziale nel frontend. Per le scritture è richiesta l’origine corretta e JSON; gli errori non espongono query, stack trace o valori di configurazione.
+
+## Dati dimostrativi separati
 
 Solo su un database Neon di test, dopo le migrazioni:
 
@@ -97,48 +96,37 @@ Solo su un database Neon di test, dopo le migrazioni:
 ALLOW_DEMO_SEED=I_UNDERSTAND npm run db:seed:demo
 ```
 
-Il seed è vietato quando `CONTEXT=production` o `NODE_ENV=production`, usa nomi DEMO e UUID dedicati e non contiene dati personali. È una transazione esplicita: una seconda esecuzione fallisce senza duplicare i dati. Non viene invocato da installazione o build.
+Il seed è esplicito, transazionale, vietato con `CONTEXT=production` o `NODE_ENV=production`, usa nomi DEMO e UUID dedicati e non contiene dati personali. Non viene invocato da installazione o build. Una seconda esecuzione fallisce senza duplicare il dataset. Non usarlo per inizializzare il database reale della società.
 
-### Limiti delle verifiche backend
+## Struttura e file
 
-Migrazione e seed verificati su PostgreSQL WASM temporaneo (PGlite, solo dipendenza di test), non su Neon remoto. Nessun database locale viene usato in produzione. Non dichiarare funzionante un collegamento Neon finché una query sul progetto reale non è stata eseguita. Upload immagini e autenticazione rimangono da implementare.
+- `src/config/club.ts`, `public/logo-societa.png`: identità societaria.
+- `src/styles/global.css`, `src/layouts/BaseLayout.astro`: design system, temi e layout.
+- `src/components/admin/`: accesso, configurazione sportiva, notizie, partite e client API.
+- `src/components/public/`: card condivise e feed homepage.
+- `src/pages/notizie/`, `src/pages/partite/`, `src/pages/classifiche.astro`: pagine pubbliche on-demand.
+- `src/shared/content.ts`, `src/shared/setup.ts`: DTO, validazioni e formattazione condivise.
+- `src/server/auth/`: Better Auth, autorizzazioni e bootstrap.
+- `src/server/content/`: letture pubbliche, CRUD autorizzati, configurazione sportiva e gestione degli errori.
+- `src/server/db/`, `drizzle/`, `drizzle.config.ts`: schema e migrazioni Drizzle.
+- `src/server/services/standings.ts`: calcolo classifiche.
+- `netlify/functions/`: confini HTTP serverless.
+- `scripts/`: migrazioni, primo amministratore e seed opt-in.
+- `tests/`: autenticazione, permessi, SQL, concorrenza, configurazione e test HTTP.
+- `.env.example`, `.node-version`, `astro.config.mjs`, `netlify.toml`, `tsconfig.json`, `package*.json`: configurazione riproducibile.
+- `docs/project-brief.md`, `docs/architecture.md`: requisiti e decisioni architetturali.
 
+## Cosa rimane
 
-### File aggiunti per il backend
+Upload immagini/storage e rich text sicuro; gestione completa di squadre, staff, rose con consensi e utenti; richieste/iscrizioni con antispam; sponsor; gallerie; timeline degli eventi e formazioni; esportazione ICS; pagine legali e verifiche manuali di accessibilità. L’importazione automatica di calendari e risultati richiede la fonte ufficiale e la verifica delle sue API/licenze/autorizzazioni: nessuno scraping è attivo.
 
-`drizzle.config.ts`, `drizzle/0000_smiling_hammerhead.sql`, `drizzle/meta/*`, `src/server/db/schema.ts`, `src/server/db/client.ts`, `src/server/http.ts`, `src/server/services/standings.ts`, `netlify/functions/categories.ts`, `netlify/functions/standings.ts`, `scripts/migrate.mjs`, `scripts/seed-demo.mjs`, `scripts/seed-demo.sql`, `tests/database.test.mjs`, `tests/standings.test.mjs`, `src/env.d.ts`.
-
-Verifiche dell’aggiornamento: TypeScript senza errori, build completata, 9 test unitari/database e 4 test HTTP passati. Ulteriori 5 verifiche manuali delle API compilate hanno controllato metodi HTTP, UUID non valido, assenza di database e mancata esposizione di dettagli interni. Logo originale e connessione Neon remota non verificati perché i rispettivi file/credenziali non sono disponibili.
-
-
-## Area riservata: autenticazione e ruoli
-
-`/admin` è una pagina pubblica contenitore: non include dati riservati nel suo HTML. Il componente React richiede una sessione al backend prima di mostrare dati. Il server controlla sessione e permessi su `/api/admin/dashboard`. La dashboard mostra conteggi reali solo agli amministratori globali; gli utenti con accesso limitato non ricevono conteggi di altre categorie.
-
-Implementati: Better Auth con adattatore Drizzle, login email/password, sessioni PostgreSQL, logout, cookie HttpOnly/Secure/SameSite=Lax su HTTPS, controllo origine CSRF della libreria, iscrizione pubblica disabilitata, rate limiting persistente e permessi server. Il token di sessione non viene salvato in localStorage. La password è trattata con il scrypt della libreria. Sessioni di 8 ore, con rinnovo controllato e senza cache cookie dei dati di sessione.
-
-Ruoli: `super_admin` (completo), `admin` (contenuti, non utenti), `category_manager` (solo categoria assegnata), `editor` (notizie secondo lo scope assegnato). I grant sconosciuti o incoerenti sono rifiutati; la rimozione di un permesso ha effetto sulla richiesta successiva. I CRUD per contenuti/utenti non sono ancora implementati: la presenza della policy non equivale a un pannello completo.
-
-### Attivazione su Netlify
-
-1. Configurare nelle variabili backend Netlify `DATABASE_URL`, `BETTER_AUTH_URL` (origine HTTPS esatta del sito, senza percorsi) e `BETTER_AUTH_SECRET` (segreto casuale di almeno 32 caratteri). Generare il segreto sul proprio computer, ad esempio `openssl rand -base64 48`, e inserirlo nelle impostazioni sicure; non committarlo e non incollarlo in chat. `SITE_URL` è invece l’origine pubblica usata per SEO.
-2. Eseguire `npm run db:migrate` da un terminale sicuro con DATABASE_URL impostata. La seconda migrazione aggiunge account, sessioni, verifiche e contatori del rate limiting. Non eseguirla sul database sbagliato.
-3. Nel medesimo terminale, configurare le variabili temporanee `BOOTSTRAP_ADMIN_NAME`, `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD` e invocare `npm run admin:bootstrap`. Password da 14 a 128 caratteri; nessuna password predefinita. Non scrivere la password nel comando salvato nella cronologia: usare il gestore sicuro delle variabili del terminale/ambiente. Il comando usa query parametrizzate, lock transazionale e audit, e si rifiuta di creare un secondo amministratore iniziale. Non è esposto come endpoint web. Rimuovere successivamente le variabili BOOTSTRAP_ADMIN_*.
-4. Ridistribuire il sito e aprire `/admin`. Verificare login/logout e permessi sul dominio reale HTTPS. Non riutilizzare il segreto di test.
-
-Non è necessario un server sempre acceso: i gestori di autenticazione e dashboard sono Netlify Functions. Le route personalizzate sono `/api/auth/*` e `/api/admin/dashboard`; il contesto Netlify fornisce l’IP al rate limiter, sostituendo qualsiasi intestazione omonima inviata dal client. Non abilitare credenziali cross-origin.
-
-In locale, `npm run dev` verifica le pagine Astro. Per verificare le Functions con il contesto Netlify usare Netlify Dev (CLI Netlify) o il deploy di test, con le variabili backend nel proprio ambiente sicuro. I test automatici della libreria non richiedono Neon e usano PostgreSQL in memoria. Non dichiarano una verifica del routing del provider remoto.
-
-### Verifiche e limiti
-
-Testano login con password realmente hashata, cookie, sessioni, scadenza/logout, CSRF, rate limiting sul database, scope di categoria, revoca dei permessi e bootstrap transazionale. Non c’è un database Neon collegato in questa sessione né una verifica sul sito Netlify dell’utente. Senza variabili o migrazioni applicate, l’area riservata mostra indisponibilità e le API restituiscono 503: nessun accesso dimostrativo è consentito.
-
-Recupero password via email, inviti, gestione utenti e editor dei contenuti sono i prossimi moduli; non ci sono pulsanti che simulano queste azioni. Gli amministratori iniziali non hanno email marcata come verificata artificialmente. Pianificare conservazione/cancellazione di sessioni scadute, contatori e audit secondo le regole della società.
-
-### File aggiunti per accessi e ruoli
-
-`src/server/auth/config.ts`, `create-auth.ts`, `runtime.ts`, `permissions.ts`, `authorize.ts`, `authorize-request.ts`, `bootstrap-statements.ts`; `netlify/functions/auth.ts`, `admin-dashboard.ts`; `src/pages/admin.astro`; `src/components/admin/AdminApp.tsx`; `scripts/bootstrap-admin.mjs`; `tests/auth.test.mjs`; seconda migrazione e snapshot in `drizzle/`. Aggiornati schema PostgreSQL, navigazione, layout con noindex per /admin, stili, dipendenze e script.
+Gli avvisi di dipendenze bassi/moderati noti nelle transitive Netlify/Drizzle sono documentati nelle verifiche precedenti; riesaminare `npm audit` prima della pubblicazione. Non eseguire downgrade incompatibili con `--force` solo per silenziare l’audit.
 
 
-Aggiornamento verifiche fase 3: logo originale presente e verificato nella homepage; 21 test di autenticazione, autorizzazione, bootstrap, database e classifiche più 6 test HTTP passati (27 totali), TypeScript senza errori/avvisi, build completa. Sei controlli aggiuntivi sulle Functions compilate confermano metodi e risposte sicure senza configurazione. Audit produzione: nessuna segnalazione alta/critica, 20 basse/moderate nelle dipendenze transitive. La connessione al progetto Neon e il deploy HTTPS dell’utente non sono stati verificati.
+## Esito delle verifiche dell’aggiornamento
+
+- Test di dominio/database/autenticazione/configurazione: 40 casi passati complessivamente; il primo giro ha individuato un cast booleano mancante nella creazione dei partecipanti, corretto e riverificato con l’intera suite di configurazione (8/8).
+- Test HTTP: 10/10, inclusi logo originale, contenitore amministrativo, stati 503 senza database e filtri/ID non validi.
+- 14 controlli delle nuove Functions compilate: metodi HTTP, origine CSRF, errori sicuri e assenza di dettagli interni.
+- TypeScript: 60 file, zero errori/avvisi/hint. Build Netlify completata.
+- Nessuna connessione Neon remota, migrazione su database dell’utente o verifica del sito Netlify reale eseguita. I test non sostituiscono il collaudo del deploy HTTPS e la verifica manuale di accessibilità.

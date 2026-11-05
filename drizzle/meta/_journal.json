@@ -15,6 +15,13 @@
       "when": 1793888598203,
       "tag": "0001_crazy_black_knight",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793890384952,
+      "tag": "0002_flaky_forge",
+      "breakpoints": true
     }
   ]
 }

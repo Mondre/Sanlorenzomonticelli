@@ -1,0 +1,15 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import NewsCard from '../../components/public/NewsCard';
+import {database} from '../../server/db/client';
+import {contentService} from '../../server/content/service';
+import {filtersFrom,pageFailure,pageLink} from '../../server/content/public';
+import type {Page,Article} from '../../shared/content';
+export const prerender=false;
+let data:Page<Article>|undefined;
+let categories:{id:string;name:string}[]=[];
+let filters:ReturnType<typeof filtersFrom>|undefined;
+let error:ReturnType<typeof pageFailure>|undefined;
+try{filters=filtersFrom(Astro.url);const service=contentService(database());[data,categories]=await Promise.all([service.listPublicNews(filters),service.publicCategories()]);}catch(e){error=pageFailure(e);Astro.response.status=error.status;}
+---
+<BaseLayout title="Notizie"><section class="container section"><p class="eyebrow">LA VITA DEL CLUB</p><h1 class="page-title">Notizie e comunicazioni.</h1><p class="lead">Tutte le novità della società, dentro e fuori dal campo.</p><form class="public-filters" method="get"><label>Cerca una notizia<input type="search" name="search" maxlength="100" value={filters?.search??''} placeholder="Titolo o argomento"/></label><label>Categoria<select name="category"><option value="">Tutte le categorie</option>{categories?.map(c=><option value={c.id} selected={filters?.categoryId===c.id}>{c.name}</option>)}</select></label><button class="button button-secondary">Cerca</button></form>{error?<p class="notice" role="status">{error.message}</p>:data&&<>{data.items.length?<div class="values-grid">{data.items.map(article=><NewsCard article={article}/>)}</div>:<p class="empty-state">Nessuna notizia trovata. Prova a cambiare i filtri o torna più tardi.</p>}<nav class="pagination" aria-label="Pagine delle notizie">{data.page>1&&<a class="button" href={pageLink(Astro.url,data.page-1)}>Precedenti</a>}<span>Pagina {data.page}</span>{data.hasMore&&<a class="button" href={pageLink(Astro.url,data.page+1)}>Successive</a>}</nav></>}</section></BaseLayout>

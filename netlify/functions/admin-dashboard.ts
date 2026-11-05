@@ -1,4 +1,4 @@
-import { count, eq } from 'drizzle-orm';
+import { count, eq, and, or, lte } from 'drizzle-orm';
 import { authorize,AccessDenied } from '../../src/server/auth/authorize';
 import { database } from '../../src/server/db/client';
 import { news,registrationRequests } from '../../src/server/db/schema';
@@ -14,7 +14,7 @@ export default async function handler(request:Request){
   if(global){
    const db=database();
    const [[published],[drafts],[requests]]=await Promise.all([
-    db.select({total:count()}).from(news).where(eq(news.status,'published')),
+    db.select({total:count()}).from(news).where(and(or(eq(news.status,'published'),eq(news.status,'scheduled')),lte(news.publishAt,new Date()))),
     db.select({total:count()}).from(news).where(eq(news.status,'draft')),
     db.select({total:count()}).from(registrationRequests).where(eq(registrationRequests.status,'new')),
    ]);

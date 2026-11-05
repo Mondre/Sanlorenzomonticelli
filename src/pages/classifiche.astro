@@ -1,0 +1,14 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import {database} from '../server/db/client';
+import {competitionList,standingsFor} from '../server/content/standings';
+import {pageFailure} from '../server/content/public';
+import {z} from 'zod';
+export const prerender=false;
+let competitions:Awaited<ReturnType<typeof competitionList>>=[];
+let table:Awaited<ReturnType<typeof standingsFor>>=null;
+let error:ReturnType<typeof pageFailure>|undefined;
+const selected=Astro.url.searchParams.get('competition');
+try{if(selected)z.uuid().parse(selected);const db=database();competitions=await competitionList(db);if(selected){table=await standingsFor(db,selected);if(!table)Astro.response.status=404;}}catch(e){error=pageFailure(e);Astro.response.status=error.status;}
+---
+<BaseLayout title="Classifiche"><section class="container section"><p class="eyebrow">GIORNATA DOPO GIORNATA</p><h1 class="page-title">Classifiche.</h1><p class="lead">Scegli la competizione e la stagione che vuoi seguire.</p>{error?<p class="notice" role="status">{error.message}</p>:<><form class="public-filters" method="get"><label>Competizione e stagione<select name="competition" required><option value="">Seleziona</option>{competitions?.map(c=><option value={c.id} selected={selected===c.id}>{c.name} · {c.season}</option>)}</select></label><button class="button button-secondary">Mostra classifica</button></form>{table?<><h2>{table.competition.name} · {table.competition.season}</h2><div class="table-scroll"><table class="standings-table"><caption>Classifica calcolata sui risultati inseriti</caption><thead><tr><th scope="col">Pos.</th><th scope="col">Squadra</th><th scope="col">Punti</th><th scope="col"><abbr title="Giocate">G</abbr></th><th scope="col"><abbr title="Vinte">V</abbr></th><th scope="col"><abbr title="Pareggiate">N</abbr></th><th scope="col"><abbr title="Perse">P</abbr></th><th scope="col">Gol fatti</th><th scope="col">Gol subiti</th><th scope="col">Rettifiche</th></tr></thead><tbody>{table.items.map((row,i)=><tr><td>{i+1}</td><th scope="row">{row.name}</th><td><strong>{row.points}</strong></td><td>{row.played}</td><td>{row.won}</td><td>{row.drawn}</td><td>{row.lost}</td><td>{row.goalsFor}</td><td>{row.goalsAgainst}</td><td>{row.adjustments}</td></tr>)}</tbody></table></div><p class="notice">{table.note}</p></>:<p class="empty-state">{selected?'Classifica non disponibile.':competitions?.length?'Seleziona una competizione per visualizzare la classifica.':'Non ci sono ancora classifiche disponibili.'}</p>}</>}</section></BaseLayout>
