@@ -1,0 +1,5 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import RegistrationForm from '../components/public/RegistrationForm';
+---
+<BaseLayout title="Informazioni e prove"><section class="container section registration-page"><p class="eyebrow">LA PROSSIMA PASSIONE COMINCIA QUI</p><h1 class="page-title">Parliamone insieme.</h1><p class="lead">Vuoi conoscere una categoria, richiedere una prova o contattare la segreteria? Lascia i recapiti di un referente adulto: ti risponderemo con le informazioni disponibili.</p><RegistrationForm client:load/><noscript>Per inviare una richiesta da questo modulo è necessario attivare JavaScript.</noscript></section></BaseLayout>

@@ -10,7 +10,7 @@ export async function rows<T>(db:Executor,statement:SQL,shape:z.ZodType<T>):Prom
 const idRow=z.object({id:z.uuid()});
 const pagination=(page:number)=>{if(!Number.isInteger(page)||page<1||page>10000)throw new ContentError(400,'Pagina non valida.');return (page-1)*25;};
 const inIds=(ids:string[])=>sql.join(ids.map(id=>sql`${id}::uuid`),sql`, `);
-function categoryScope(grants:Grant[],action:Action,column:SQL){
+export function categoryScope(grants:Grant[],action:Action,column:SQL){
  if(can(grants,action))return sql`true`;
  const ids=[...new Set(grants.filter(g=>g.categoryId && can([g],action,g.categoryId)).map(g=>g.categoryId!))];
  return ids.length?sql`${column} IN (${inIds(ids)})`:sql`false`;
@@ -70,9 +70,10 @@ export function contentService(db:Executor){
   async updateNews(actor:Actor,input:unknown){const data=newsUpdate.parse(input);await checkArticle(actor,data.id);const date=publication(data);return changed(sql`WITH updated AS (UPDATE news n SET title=${data.title},excerpt=${data.excerpt},body=${data.body},status=${data.status}::news_status,publish_at=${date}::timestamptz,featured=${data.featured},updated_at=greatest(date_trunc('milliseconds',clock_timestamp()),date_trunc('milliseconds',n.updated_at)+interval '1 millisecond') WHERE n.id=${data.id}::uuid AND date_trunc('milliseconds',n.updated_at)=${data.version}::timestamptz AND ${newsScope(actor.grants,'news.write')} RETURNING n.id), logged AS (INSERT INTO audit_logs(actor_id,action,entity_type,entity_id) SELECT ${actor.userId},'news.update','news',id::text FROM updated) SELECT id FROM updated`);},
   async deleteNews(actor:Actor,input:unknown){const data=deleteInput.parse(input);await checkArticle(actor,data.id);return changed(sql`WITH deleted AS (DELETE FROM news n WHERE n.id=${data.id}::uuid AND date_trunc('milliseconds',n.updated_at)=${data.version}::timestamptz AND ${newsScope(actor.grants,'news.write')} RETURNING n.id), logged AS (INSERT INTO audit_logs(actor_id,action,entity_type,entity_id) SELECT ${actor.userId},'news.delete','news',id::text FROM deleted) SELECT id FROM deleted`);},
   async listAdminMatches(grants:Grant[],page=1){const offset=pagination(page);const items=await rows(db,sql`${matchSelect} WHERE ${categoryScope(grants,'matches.read',sql`c.category_id`)} ORDER BY m.kickoff DESC NULLS LAST,m.id LIMIT 26 OFFSET ${offset}`,matchRow);return {items:items.slice(0,25),page,hasMore:items.length>25};},
-  async listPublicMatches({page=1,categoryId,mode='all'}:{page?:number;categoryId?:string;mode?:'all'|'upcoming'|'results'}={}){
-   const offset=pagination(page);if(categoryId)z.uuid().parse(categoryId);
+  async listPublicMatches({page=1,categoryId,seasonId,mode='all'}:{page?:number;categoryId?:string;seasonId?:string;mode?:'all'|'upcoming'|'results'}={}){
+   const offset=pagination(page);if(categoryId)z.uuid().parse(categoryId);if(seasonId)z.uuid().parse(seasonId);
    const filters=[sql`(h.is_club=true OR a.is_club=true)`];if(categoryId)filters.push(sql`cat.id=${categoryId}::uuid`);
+   if(seasonId)filters.push(sql`c.season_id=${seasonId}::uuid`);
    if(mode==='upcoming')filters.push(sql`(m.status='live' OR (m.status='scheduled' AND m.kickoff>=now()-interval '12 hours'))`);if(mode==='results')filters.push(sql`m.status='finished'`);
    const items=await rows(db,sql`${matchSelect} WHERE ${sql.join(filters,sql` AND `)} ORDER BY m.kickoff ${mode==='upcoming'?sql`ASC`:sql`DESC`} NULLS LAST,m.id LIMIT 26 OFFSET ${offset}`,matchRow);
    return {items:items.slice(0,25),page,hasMore:items.length>25};

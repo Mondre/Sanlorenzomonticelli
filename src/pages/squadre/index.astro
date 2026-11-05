@@ -1,0 +1,11 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import {database} from '../../server/db/client';
+import {teamService} from '../../server/teams/service';
+import {pageFailure} from '../../server/content/public';
+export const prerender=false;
+let teams:Awaited<ReturnType<ReturnType<typeof teamService>['publicIndex']>>=[];
+let error:ReturnType<typeof pageFailure>|undefined;
+try{teams=await teamService(database()).publicIndex();}catch(e){error=pageFailure(e);Astro.response.status=error.status;}
+---
+<BaseLayout title="Le nostre squadre"><section class="container section"><p class="eyebrow">UN’UNICA PASSIONE</p><h1 class="page-title">Le nostre squadre.</h1><p class="lead">Categorie e stagioni della società, con allenamenti, staff e tutte le partite.</p>{error?<p class="notice" role="status">{error.message}</p>:teams.length?<div class="values-grid">{teams.map(team=><article class="value-card"><span class="pill">{team.season}</span><h2 class="team-card-title">{team.category}</h2><p>{team.name}</p><a class="text-link" href={'/squadre/'+team.slug+'?season='+team.seasonId}>Scopri la squadra →</a></article>)}</div>:<p class="empty-state">Le squadre e le stagioni saranno pubblicate qui.</p>}<div class="panel club-callout"><h2>Vuoi scendere in campo?</h2><p>Contatta la segreteria per informazioni o per richiedere una prova.</p><a class="button button-secondary" href="/richieste">Scrivi alla società</a></div></section></BaseLayout>

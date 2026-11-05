@@ -58,3 +58,17 @@ test('filtri non validi e UUID malformati restituiscono 400/404',async()=>{
  assert.equal((await fetch(new URL('/classifiche?competition=invalid',base))).status,400);
  assert.equal((await fetch(new URL('/partite/not-a-uuid',base))).status,404);
 });
+
+test('pagina squadre gestisce l’assenza di database senza dati fittizi',async()=>{
+ const response=await fetch(new URL('/squadre',base));assert.equal(response.status,process.env.DATABASE_URL?200:503);const html=await response.text();assert.match(html,/Le nostre squadre/);assert.doesNotMatch(html,/postgres(?:ql)?:\/\/|DATABASE_URL|DrizzleQueryError/);
+});
+test('pagina richieste non rende un modulo attivo prima del caricamento dell’informativa',async()=>{
+ const response=await fetch(new URL('/richieste',base));assert.equal(response.status,200);const html=await response.text();assert.match(html,/referente adulto/);assert.match(html,/Caricamento del modulo/);assert.doesNotMatch(html,/name="contactName"|BETTER_AUTH_SECRET/);
+});
+test('privacy e cookie: informativa configurata oppure stato di indisponibilità',async()=>{
+ const response=await fetch(new URL('/privacy',base));assert.ok([200,503].includes(response.status));const html=await response.text();if(!process.env.DATABASE_URL){assert.equal(response.status,503);assert.match(html,/non raccoglie dati/);}assert.doesNotMatch(html,/DATABASE_URL|DrizzleQueryError/);
+ const cookie=await fetch(new URL('/cookie',base));assert.equal(cookie.status,200);assert.match(await cookie.text(),/cookie tecnici/);
+});
+test('stagione malformata delle squadre rifiutata prima della query',async()=>{
+ assert.equal((await fetch(new URL('/squadre/prima-squadra?season=invalid',base))).status,400);
+});

@@ -7,8 +7,11 @@ Portale calcistico con Astro, React, TypeScript, Tailwind, Netlify Functions, Be
 - Homepage con feed di notizie, ultimo risultato e prossime partite letti dal database.
 - `/notizie`: ricerca, filtro categoria, paginazione e articoli con URL stabili. I contenuti sono renderizzati sul server. Le bozze e le pubblicazioni future non sono pubbliche.
 - `/partite`: calendario, risultati, filtri, paginazione e scheda partita con cronaca, stato e indicazioni Google Maps.
+- `/squadre`: categorie, squadre e archivio stagioni; pagine con presentazione, allenamenti, staff autorizzati, partite e notizie. Le rose giovanili non sono esposte.
+- `/richieste`: informazioni/prove/segreteria con dati del referente adulto, consenso e antispam persistente. Il modulo resta disabilitato fino alla pubblicazione dell’informativa.
+- `/privacy` e `/cookie`: informativa delle richieste configurabile e informazioni sui cookie tecnici del portale.
 - `/classifiche`: competizione e stagione selezionabili, punti dai risultati terminati e rettifiche. L’ordine a parità di punti è indicativo, da confrontare con i regolamenti ufficiali.
-- `/admin`: accesso email/password, sessioni e permessi server; configurazione iniziale sportiva; notizie con bozze/pubblicazione/programmazione/modifica/eliminazione confermata; creazione partite e aggiornamento di stato, risultato, campo e cronaca.
+- `/admin`: accesso email/password, sessioni e permessi server; configurazione iniziale sportiva; notizie con bozze/pubblicazione/programmazione/modifica/eliminazione confermata; creazione partite e aggiornamento di stato, risultato, campo e cronaca; gestione squadre/staff e richieste alla segreteria.
 - Configurazione iniziale: creazione/modifica/disattivazione/ordinamento categorie; creazione stagioni, competizioni e partecipanti; creazione campi sportivi. Le squadre con stesso nome, categoria e stagione vengono riutilizzate.
 - Audit delle scritture, controllo di versione per notizie e partite, validazione Zod, query parametrizzate, protezione origine/CSRF per le mutazioni e limite di 64 KiB ai payload JSON.
 
@@ -63,7 +66,7 @@ Password da 14 a 128 caratteri. Non scrivere password nei comandi salvati nella 
 
 - `super_admin`: accesso completo.
 - `admin`: contenuti e configurazione sportiva, non gestione utenti.
-- `category_manager`: contenuti delle sole categorie assegnate.
+- `category_manager`: notizie, partite, squadre e staff delle sole categorie assegnate. Nessun accesso alle richieste personali.
 - `editor`: notizie entro gli scope assegnati.
 
 I permessi sono riletti sul server; la loro revoca vale dalla richiesta successiva. Le API verificano sia lo scope originale sia il contenuto da modificare e rifiutano campi estranei. I conteggi globali della dashboard sono riservati agli amministratori globali. La registrazione pubblica è disabilitata; cookie HttpOnly/Secure/SameSite=Lax su HTTPS, sessioni PostgreSQL di 8 ore, nessun token in localStorage. Better Auth mantiene i controlli di origine. Il rate limiting del login è persistente; l’IP proviene dal contesto Netlify, non dalle intestazioni liberamente inviate dal client.
@@ -84,6 +87,12 @@ Per questa versione con pagine dinamiche e API serve il deploy **da repository o
 - `/api/admin/matches`: GET paginata, POST creazione, PUT aggiornamento.
 - `/api/admin/setup`: configurazione sportiva, solo amministratori globali.
 - `/api/club-feed`: GET pubblica per homepage.
+- `/api/admin/teams`: squadre della società e staff, con scope per categoria.
+- `/api/admin/requests`: elenco paginato, presa in carico/chiusura ed eliminazione delle richieste, solo amministratori globali.
+- `/api/admin/request-settings`: configurazione/versioni dell’informativa, solo amministratori globali.
+- `/api/registration-settings`: dati del modulo e challenge antispam.
+- `/api/requests`: invio pubblico con consenso e protezione origine.
+- `purge-requests`: Function pianificata giornaliera per scadenza richieste e contatori, senza path pubblico personalizzato.
 - `/.netlify/functions/categories` e `/.netlify/functions/standings`: letture pubbliche iniziali.
 
 Nessuna credenziale nel frontend. Per le scritture è richiesta l’origine corretta e JSON; gli errori non espongono query, stack trace o valori di configurazione.
@@ -107,6 +116,7 @@ Il seed è esplicito, transazionale, vietato con `CONTEXT=production` o `NODE_EN
 - `src/pages/notizie/`, `src/pages/partite/`, `src/pages/classifiche.astro`: pagine pubbliche on-demand.
 - `src/shared/content.ts`, `src/shared/setup.ts`: DTO, validazioni e formattazione condivise.
 - `src/server/auth/`: Better Auth, autorizzazioni e bootstrap.
+- `src/server/teams/`, `src/server/requests/`: servizi squadre, privacy, antispam e richieste.
 - `src/server/content/`: letture pubbliche, CRUD autorizzati, configurazione sportiva e gestione degli errori.
 - `src/server/db/`, `drizzle/`, `drizzle.config.ts`: schema e migrazioni Drizzle.
 - `src/server/services/standings.ts`: calcolo classifiche.
@@ -118,15 +128,49 @@ Il seed è esplicito, transazionale, vietato con `CONTEXT=production` o `NODE_EN
 
 ## Cosa rimane
 
-Upload immagini/storage e rich text sicuro; gestione completa di squadre, staff, rose con consensi e utenti; richieste/iscrizioni con antispam; sponsor; gallerie; timeline degli eventi e formazioni; esportazione ICS; pagine legali e verifiche manuali di accessibilità. L’importazione automatica di calendari e risultati richiede la fonte ufficiale e la verifica delle sue API/licenze/autorizzazioni: nessuno scraping è attivo.
+Upload immagini/storage e rich text sicuro; gestione avanzata e modifica dei singoli collaboratori, CRUD giocatori adulti con consensi e gestione utenti; sponsor; gallerie; timeline degli eventi e formazioni; esportazione ICS; completamento/revisione delle informative societarie e verifiche manuali di accessibilità. L’importazione automatica di calendari e risultati richiede la fonte ufficiale e la verifica delle sue API/licenze/autorizzazioni: nessuno scraping è attivo.
 
 Gli avvisi di dipendenze bassi/moderati noti nelle transitive Netlify/Drizzle sono documentati nelle verifiche precedenti; riesaminare `npm audit` prima della pubblicazione. Non eseguire downgrade incompatibili con `--force` solo per silenziare l’audit.
 
 
+## Squadre: gestione e privacy
+
+Da **Squadre e staff** gli amministratori e i responsabili della categoria possono creare una squadra della società in una stagione esistente, modificarne presentazione e orari, aggiungere un collaboratore adulto e rimuoverlo. La pubblicazione del nome/ruolo dello staff richiede un’azione esplicita; per correggere un collaboratore, rimuoverlo e inserirlo nuovamente. Le stagioni sono create dalla configurazione sportiva iniziale.
+
+Le pagine pubbliche non mostrano staff riservato né squadre avversarie come squadre della società. Le rose giovanili rimangono escluse anche se un flag nel database fosse permissivo. Per gli adulti servono sia l’abilitazione della rosa nella categoria sia il consenso del singolo giocatore; la gestione dei giocatori/consensi via pannello non è ancora implementata. Le partite dell’archivio sono filtrate per la stagione scelta, non mescolate a quella corrente.
+
+## Richieste, informativa e conservazione
+
+Dopo aver collegato Neon, applicare la nuova migrazione con `npm run db:migrate`. Gli accessi continuano a richiedere DATABASE_URL, BETTER_AUTH_URL e BETTER_AUTH_SECRET: non occorrono altri segreti o servizi CAPTCHA per questo modulo.
+
+1. In `/admin` aprire **Richieste → Informativa privacy e attivazione del modulo**.
+2. Inserire denominazione/indirizzo del titolare, contatto privacy, testo approvato dalla società e durata di conservazione (da 30 a 365 giorni). Il testo deve comprendere finalità, base giuridica, destinatari, eventuali trasferimenti, diritti e reclamo. Non sono forniti dati legali inventati né una certificazione di conformità GDPR.
+3. Dopo la verifica della società, abilitare il modulo e salvare. Una bozza o un’informativa mancante non abilita la raccolta dati. Il testo resta in forma semplice, senza HTML arbitrario.
+4. Verificare `/privacy` e un invio su `/richieste` nel dominio primario HTTPS. Il campo consenso è obbligatorio e si riferisce alla risposta alla richiesta; non è un consenso marketing. Non raccogliere dati personali o sanitari dei minori nel messaggio.
+5. La segreteria autorizzata può prendere in carico, chiudere o eliminare la richiesta. L’eliminazione rimuove i dati personali della richiesta; l’audit registra solo azione e UUID, senza copiare il messaggio o i recapiti. Non vengono inviate email automatiche; il collegamento email apre il programma di posta dell’operatore.
+
+Ogni invio conserva data e versione dell’informativa; le versioni pubblicate sono archiviate in una tabella separata e non vengono sovrascritte. Un aggiornamento dell’informativa invalida i moduli precedenti finché l’utente non li aggiorna e conferma nuovamente il consenso. La versione corrente è pubblica; lo storico è conservato nel database, non esposto con un endpoint pubblico.
+
+Antispam: campo honeypot, challenge HMAC firmata vincolata a IP/versione, compilazione minima di 3 secondi e validità massima di 30 minuti; quota atomica di 3 invii ogni 15 minuti per digest IP. L’IP arriva esclusivamente dal contesto Netlify, mai da intestazioni scelte dal client. È memorizzato solo un digest HMAC pseudonimizzato, non l’IP in chiaro. Il secret è derivato per scopi separati da BETTER_AUTH_SECRET; ruotarlo invalida anche le challenge già emesse. I digest non sono da considerare dati anonimi. I reinvii con lo stesso identificativo non duplicano richieste né quota; i payload JSON hanno il limite comune di 64 KiB. Queste misure riducono lo spam senza promettere di eliminarlo completamente.
+
+Conservazione: `purge-requests` è configurata come Function Netlify giornaliera (`0 3 * * *`, ore 04:00 italiane in inverno/05:00 in estate). La durata effettiva è il minore tra quella dell’informativa accettata e quella attuale: aumentare la durata non prolunga retroattivamente la conservazione delle vecchie richieste. Le richieste prive di storico legacy usano una soglia prudente di 30 giorni. I digest con più di 24 ore vengono rimossi al passaggio giornaliero. L’esecuzione periodica deve essere verificata sul deploy di produzione Netlify; non è attestata dai test locali.
+
+Pulizia manuale alternativa, da un terminale sicuro con DATABASE_URL impostata:
+
+```sh
+npm run requests:purge
+```
+
+Il comando elimina solo dati oltre la soglia prevista e produce conteggi, senza stampare dati personali. Il processo è idempotente. Controllare con la società le durate, i fornitori e le regioni effettivamente configurati prima di pubblicare l’informativa. Le pagine privacy/cookie non sostituiscono questa verifica.
+
+## File aggiunti nell’aggiornamento
+
+`src/shared/teams.ts`, `src/shared/requests.ts`; `src/server/teams/service.ts`; `src/server/requests/service.ts`, `security.ts`; `src/components/admin/TeamsManager.tsx`, `RequestsManager.tsx`, `PolicyEditor.tsx`; `src/components/public/RegistrationForm.tsx`; `src/pages/squadre/*`, `richieste.astro`, `privacy.astro`, `cookie.astro`; `netlify/functions/admin-teams.ts`, `admin-requests.ts`, `request-settings.ts`, `registration-settings.ts`, `registration.ts`, `purge-requests.ts`; `scripts/purge-requests.mjs`; migrazione `0003` e snapshot; `tests/teams.test.mjs`, `tests/requests.test.mjs`. Aggiornati navigazione, footer, homepage, schema/permessi, filtro stagionale e test HTTP.
+
 ## Esito delle verifiche dell’aggiornamento
 
-- Test di dominio/database/autenticazione/configurazione: 40 casi passati complessivamente; il primo giro ha individuato un cast booleano mancante nella creazione dei partecipanti, corretto e riverificato con l’intera suite di configurazione (8/8).
-- Test HTTP: 10/10, inclusi logo originale, contenitore amministrativo, stati 503 senza database e filtri/ID non validi.
-- 14 controlli delle nuove Functions compilate: metodi HTTP, origine CSRF, errori sicuri e assenza di dettagli interni.
-- TypeScript: 60 file, zero errori/avvisi/hint. Build Netlify completata.
-- Nessuna connessione Neon remota, migrazione su database dell’utente o verifica del sito Netlify reale eseguita. I test non sostituiscono il collaudo del deploy HTTPS e la verifica manuale di accessibilità.
+- Test di dominio/database/autenticazione/configurazione/richieste/squadre: 60/60 passati.
+- Test HTTP: 14/14, inclusi logo originale, contenitore amministrativo, pagine pubbliche, stato del modulo e filtri non validi.
+- 19 controlli sulle nuove Functions compilate: metodi, origini, indisponibilità sicura e configurazione della pianificazione.
+- TypeScript: 83 file, nessun errore/avviso/hint. Build Netlify completata.
+- Nessuna connessione Neon remota, migrazione su database dell’utente, invio di dati personali reali o esecuzione cron su Netlify effettuata. Rimangono il collaudo del deploy HTTPS e le verifiche manuali di accessibilità.

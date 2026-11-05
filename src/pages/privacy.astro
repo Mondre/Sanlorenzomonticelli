@@ -1,0 +1,10 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import {database} from '../server/db/client';
+import {requestService} from '../server/requests/service';
+export const prerender=false;
+let policy:Awaited<ReturnType<ReturnType<typeof requestService>['publicPolicy']>>=null;
+try{policy=await requestService(database()).publicPolicy();}catch{}
+if(!policy)Astro.response.status=503;
+---
+<BaseLayout title="Privacy delle richieste"><section class="container section article-page"><p class="eyebrow">INFORMAZIONI SUL TRATTAMENTO</p><h1 class="page-title">Privacy delle richieste.</h1>{policy?<><div class="panel"><p><strong>Titolare:</strong> {policy.controllerName}</p><p><strong>Indirizzo:</strong> {policy.controllerAddress}</p><p><strong>Contatti per i diritti:</strong> <a href={'mailto:'+encodeURIComponent(policy.contactEmail)}>{policy.contactEmail}</a></p><p><strong>Conservazione prevista:</strong> {policy.retentionDays} giorni</p></div><div class="article-body">{policy.body}</div><p class="privacy-version">Versione dell’informativa: {policy.version}</p><a class="button button-secondary" href="/richieste">Torna al modulo</a></>:<p class="notice">L’informativa per le richieste online non è ancora disponibile. Il modulo non raccoglie dati finché la società non l’avrà pubblicata.</p>}</section></BaseLayout>

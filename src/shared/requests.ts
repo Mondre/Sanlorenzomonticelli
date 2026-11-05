@@ -1,0 +1,14 @@
+import {z} from 'zod';
+import {dateValue} from './content.ts';
+export const policyFields={enabled:z.boolean(),controllerName:z.string().trim().max(150),controllerAddress:z.string().trim().max(250),contactEmail:z.union([z.literal(''),z.email().max(254)]),body:z.string().trim().max(8000),retentionDays:z.number().int().min(30).max(365)};
+export const privacyPolicy=z.object({...policyFields,version:z.uuid()});
+export type PrivacyPolicy=z.infer<typeof privacyPolicy>;
+export const policyInput=z.object({...policyFields,expectedVersion:z.uuid().nullable()}).strict().superRefine((v,c)=>{if(v.enabled){for(const [field,min] of [['controllerName',2],['controllerAddress',5],['contactEmail',3],['body',200]] as const){if(v[field].length<min)c.addIssue({code:'custom',message:'Compila l’informativa prima di attivare il modulo.',path:[field]});}}});
+export const requestTypes={information:'Informazioni',trial:'Prova gratuita',secretariat:'Segreteria'} as const;
+export const requestInput=z.object({requestId:z.uuid(),contactName:z.string().trim().min(2).max(100),email:z.email().max(254).transform(v=>v.toLowerCase()),phone:z.string().trim().max(30).regex(/^[+0-9 ()/.-]*$/).nullable(),categoryId:z.uuid(),message:z.string().trim().min(10).max(3000),type:z.enum(['information','trial','secretariat']),consent:z.literal(true),privacyVersion:z.uuid(),challenge:z.string().max(200),website:z.string().max(200)}).strict();
+export const requestStatuses=['new','in_progress','closed'] as const;
+export const requestStatusLabels={new:'Nuova',in_progress:'In lavorazione',closed:'Chiusa'} as const;
+export const requestUpdate=z.object({id:z.uuid(),version:z.iso.datetime(),status:z.enum(requestStatuses)}).strict();
+export const requestDelete=z.object({id:z.uuid(),version:z.iso.datetime()}).strict();
+export const requestRow=z.object({id:z.uuid(),contactName:z.string(),email:z.string(),phone:z.string().nullable(),categoryId:z.uuid().nullable(),categoryName:z.string().nullable(),message:z.string(),type:z.string(),privacyVersion:z.string(),consentedAt:dateValue,createdAt:dateValue,version:dateValue,status:z.enum(requestStatuses)});
+export type RegistrationRequest=z.infer<typeof requestRow>;

@@ -1,7 +1,7 @@
 export const roleNames = ['super_admin','admin','category_manager','editor'] as const;
 export type RoleName = typeof roleNames[number];
 export interface Grant {role:string;categoryId:string|null}
-export type Action = 'dashboard.read'|'news.read'|'news.write'|'matches.read'|'matches.write'|'team.write'|'categories.write'|'users.manage'|'settings.write';
+export type Action = 'dashboard.read'|'news.read'|'news.write'|'matches.read'|'matches.write'|'team.write'|'categories.write'|'users.manage'|'settings.write'|'requests.read'|'requests.write';
 export function validGrants(grants:Grant[]):Grant[]{
  return grants.filter(g=>roleNames.includes(g.role as RoleName) &&
   (g.role==='category_manager' ? Boolean(g.categoryId) : ['super_admin','admin'].includes(g.role) ? g.categoryId===null : true));
