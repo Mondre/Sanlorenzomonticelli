@@ -37,3 +37,7 @@ Nessun Firebase, Supabase, scraping o servizio realtime richiesto. Le fasi datab
 - https://docs.astro.build/en/guides/deploy/netlify/
 
 Solo le prime cinque fonti sono state consultate tramite metadati npm o contenuto del repository; il link Astro è fornito come riferimento per il deploy. I limiti commerciali di storage e hosting restano da verificare prima della relativa implementazione.
+
+## Aggiornamento fase 2
+
+Implementati schema Drizzle (21 tabelle), migrazione iniziale, client Neon HTTP, API Netlify GET per categorie/classifiche, calcolo classifiche, seed DEMO opt-in. I dati restano nel backend e non ci sono scritture pubbliche. Le credenziali Neon sono assenti: migrazione/seed sono stati testati in PostgreSQL WASM in memoria, non su un servizio Neon remoto. Better Auth e sessioni restano nella fase 3. API verificate localmente nei rami 400/405/503 e senza esposizione di dettagli interni. Il successo delle query GET col database remoto richiede ancora test sul progetto Neon reale.

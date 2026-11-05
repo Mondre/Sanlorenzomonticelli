@@ -1,3 +1,3 @@
-# Backend serverless
+# API Netlify
 
-Le API di dominio e Better Auth saranno implementate qui dalla fase 2. Nessun endpoint di autenticazione o CRUD è attivo nella fase 1. Usare Request/Response standard Netlify e import server-only; mai esporre DATABASE_URL al client.
+`categories.ts` e `standings.ts` espongono GET pubbliche di sola lettura; ogni altro metodo restituisce 405. Credenziali DATABASE_URL solo nell’ambiente backend. Errori interni e database mancante restituiscono 503 senza dettagli. Better Auth e CRUD amministrativi non sono ancora attivi. Non aggiungere scritture senza sessioni, RBAC e validazione server.
