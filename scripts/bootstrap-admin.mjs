@@ -1,0 +1,11 @@
+import {randomUUID} from 'node:crypto';
+import {neon} from '@neondatabase/serverless';
+import {hashPassword} from 'better-auth/crypto';
+import {z} from 'zod';
+import {bootstrapStatements} from '../src/server/auth/bootstrap-statements.ts';
+const config=z.object({DATABASE_URL:z.string().min(1),BOOTSTRAP_ADMIN_NAME:z.string().trim().min(2).max(100),BOOTSTRAP_ADMIN_EMAIL:z.email().transform(s=>s.toLowerCase()),BOOTSTRAP_ADMIN_PASSWORD:z.string().min(14).max(128)}).safeParse(process.env);
+if(!config.success)throw new Error('Configurare DATABASE_URL e BOOTSTRAP_ADMIN_NAME/EMAIL/PASSWORD (password da 14 a 128 caratteri) nel terminale sicuro.');
+const c=config.data,sql=neon(c.DATABASE_URL),userId=randomUUID(),password=await hashPassword(c.BOOTSTRAP_ADMIN_PASSWORD);
+const statements=bootstrapStatements({userId,accountId:randomUUID(),name:c.BOOTSTRAP_ADMIN_NAME,email:c.BOOTSTRAP_ADMIN_EMAIL,passwordHash:password});
+await sql.transaction(statements.map(statement=>sql.query(statement.text,statement.params)));
+console.log('Primo amministratore creato. Rimuovere le variabili BOOTSTRAP_ADMIN_* dal terminale.');

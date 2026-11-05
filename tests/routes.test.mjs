@@ -24,3 +24,20 @@ test('stemma SVG è disponibile senza servizi esterni', async () => {
  assert.match(response.headers.get('content-type'), /image\/svg/);
  assert.match(await response.text(), /<svg/);
 });
+
+test('logo originale usato nella home e disponibile come PNG',async()=>{
+ const home=await (await fetch(new URL('/',base))).text();
+ assert.match(home,/src="\/logo-societa\.png"/);
+ const image=await fetch(new URL('/logo-societa.png',base));
+ assert.equal(image.status,200);
+ assert.match(image.headers.get('content-type'),/image\/png/);
+ assert.ok((await image.arrayBuffer()).byteLength>1000);
+});
+test('area riservata renderizza solo il contenitore pubblico e noindex',async()=>{
+ const response=await fetch(new URL('/admin',base));
+ assert.equal(response.status,200);
+ const html=await response.text();
+ assert.match(html,/noindex, nofollow/);
+ assert.match(html,/Verifica dell/);
+ assert.doesNotMatch(html,/postgres(?:ql)?:\/\//);
+});

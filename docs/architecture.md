@@ -41,3 +41,9 @@ Solo le prime cinque fonti sono state consultate tramite metadati npm o contenut
 ## Aggiornamento fase 2
 
 Implementati schema Drizzle (21 tabelle), migrazione iniziale, client Neon HTTP, API Netlify GET per categorie/classifiche, calcolo classifiche, seed DEMO opt-in. I dati restano nel backend e non ci sono scritture pubbliche. Le credenziali Neon sono assenti: migrazione/seed sono stati testati in PostgreSQL WASM in memoria, non su un servizio Neon remoto. Better Auth e sessioni restano nella fase 3. API verificate localmente nei rami 400/405/503 e senza esposizione di dettagli interni. Il successo delle query GET col database remoto richiede ancora test sul progetto Neon reale.
+
+## Aggiornamento fase 3
+
+Better Auth 1.7.17, adattatore Drizzle con transazioni interattive disabilitate per il driver Neon HTTP, mapping esplicito dei modelli. Lettura delle sessioni dal database a ogni controllo; nessuna cache autorizzativa nel browser. Per il bootstrap il driver Neon esegue invece una transazione batch con lock e tutti gli inserimenti atomici. Login pubblico disabilitato per nuove registrazioni; il primo account viene creato da script sicuro con scrypt e audit.
+
+Contatori di rate limiting persistenti nel database. Le Functions accettano come IP autorevole solo il contesto Netlify, non le intestazioni liberamente fornite dal client. Better Auth mantiene i controlli di origine e cookie predefiniti. Il flusso completo è testato con PostgreSQL in memoria; configurazione Neon e routing Functions sul deploy dell’utente rimangono da verificare.

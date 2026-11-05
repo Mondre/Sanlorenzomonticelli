@@ -1,0 +1,5 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import AdminApp from '../components/admin/AdminApp';
+---
+<BaseLayout title="Area riservata" noindex><section class="container section"><AdminApp client:load/><noscript>Per accedere all’area riservata attiva JavaScript nel browser.</noscript></section></BaseLayout>

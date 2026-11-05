@@ -2,8 +2,8 @@
 import '../styles/global.css';
 import Navigation from '../components/Navigation';
 import { club } from '../config/club';
-interface Props { title: string; description?: string }
-const { title, description = club.description } = Astro.props;
+interface Props { title: string; description?: string; noindex?: boolean }
+const { title, description = club.description, noindex = false } = Astro.props;
 const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site) : undefined;
 ---
 <!doctype html>
@@ -11,6 +11,7 @@ const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site) : undefin
 <head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
 <meta name="description" content={description}/><meta name="theme-color" content="#08724b"/>
+{noindex && <meta name="robots" content="noindex, nofollow"/>}
 <title>{title} | {club.name}</title>
 <link rel="icon" href={club.logo}/>
 {canonical && <link rel="canonical" href={canonical}/>}

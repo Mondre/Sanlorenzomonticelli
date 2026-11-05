@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { pgTable, uuid, text, integer, boolean, timestamp, date, jsonb, primaryKey, unique, index, check, foreignKey, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, boolean, timestamp, date, jsonb, primaryKey, unique, index, check, foreignKey, pgEnum, bigint } from 'drizzle-orm/pg-core';
 const id = () => uuid('id').defaultRandom().primaryKey();
 const created = () => timestamp('created_at', { withTimezone: true }).defaultNow().notNull();
 export const matchStatus = pgEnum('match_status', ['scheduled','live','finished','postponed','cancelled','suspended']);
@@ -32,3 +32,15 @@ export const sponsors = pgTable('sponsors', {id:id(),name:text('name').notNull()
 export const registrationRequests = pgTable('registration_requests', {id:id(),contactName:text('contact_name').notNull(),email:text('email').notNull(),phone:text('phone'),categoryId:uuid('category_id').references(()=>categories.id),message:text('message').notNull(),type:text('type').notNull(),privacyVersion:text('privacy_version').notNull(),consentedAt:timestamp('consented_at',{withTimezone:true}).notNull(),createdAt:created(),status:text('status').default('new').notNull()},t=>[index('requests_created_idx').on(t.createdAt)]);
 export const siteSettings = pgTable('site_settings', {key:text('key').primaryKey(),value:jsonb('value').notNull(),updatedAt:timestamp('updated_at',{withTimezone:true}).defaultNow().notNull()});
 export const auditLogs = pgTable('audit_logs', {id:id(),actorId:text('actor_id').references(()=>users.id,{onDelete:'set null'}),action:text('action').notNull(),entityType:text('entity_type').notNull(),entityId:text('entity_id').notNull(),metadata:jsonb('metadata'),createdAt:created()},t=>[index('audit_created_idx').on(t.createdAt)]);
+
+// Better Auth core models. Explicit mappings are supplied to the adapter.
+export const sessions = pgTable('sessions', {
+ id:text('id').primaryKey(), token:text('token').notNull().unique(), userId:text('user_id').notNull().references(()=>users.id,{onDelete:'cascade'}),
+ expiresAt:timestamp('expires_at',{withTimezone:true}).notNull(), ipAddress:text('ip_address'), userAgent:text('user_agent'), createdAt:created(), updatedAt:timestamp('updated_at',{withTimezone:true}).defaultNow().notNull(),
+},t=>[index('sessions_user_idx').on(t.userId),index('sessions_expiry_idx').on(t.expiresAt)]);
+export const accounts = pgTable('accounts', {
+ id:text('id').primaryKey(), userId:text('user_id').notNull().references(()=>users.id,{onDelete:'cascade'}), accountId:text('account_id').notNull(), providerId:text('provider_id').notNull(),
+ accessToken:text('access_token'), refreshToken:text('refresh_token'), idToken:text('id_token'), accessTokenExpiresAt:timestamp('access_token_expires_at',{withTimezone:true}), refreshTokenExpiresAt:timestamp('refresh_token_expires_at',{withTimezone:true}),scope:text('scope'),password:text('password'), createdAt:created(),updatedAt:timestamp('updated_at',{withTimezone:true}).defaultNow().notNull(),
+},t=>[unique('accounts_provider_account').on(t.providerId,t.accountId),index('accounts_user_idx').on(t.userId)]);
+export const verifications = pgTable('verifications', {id:text('id').primaryKey(),identifier:text('identifier').notNull(),value:text('value').notNull(),expiresAt:timestamp('expires_at',{withTimezone:true}).notNull(),createdAt:created(),updatedAt:timestamp('updated_at',{withTimezone:true}).defaultNow().notNull()},t=>[index('verification_identifier_idx').on(t.identifier)]);
+export const authRateLimits = pgTable('auth_rate_limits', {id:text('id').primaryKey(),key:text('key').notNull().unique(),count:integer('count').notNull(),lastRequest:bigint('last_request',{mode:'number'}).notNull()});

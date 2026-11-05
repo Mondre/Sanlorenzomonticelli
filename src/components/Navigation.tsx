@@ -18,6 +18,7 @@ export default function Navigation({ pathname }: { pathname: string }) {
     <a href="/#societa" onClick={() => setOpen(false)}>La società</a>
     <a href="/#progetto" onClick={() => setOpen(false)}>Il progetto</a>
     <a aria-current={pathname === '/design-system' ? 'page' : undefined} href="/design-system" onClick={() => setOpen(false)}>Design system <ArrowUpRight size={14}/></a>
+    <a href="/admin" onClick={() => setOpen(false)}>Area riservata</a>
    </nav>
    <button className="icon-button" onClick={toggleTheme} aria-label="Cambia tema" aria-pressed={dark}>{dark ? <Sun size={20}/> : <Moon size={20}/>}</button>
  </div>;
