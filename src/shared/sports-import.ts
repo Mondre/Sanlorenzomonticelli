@@ -6,8 +6,10 @@ export const importedMatch=z.object({id:z.string(),round:z.number().int().min(1)
 export const importedStanding=z.object({team:sportTeam,position:count,points:z.number().int().min(-100).max(1000),played:count,won:count,drawn:count,lost:count,goalsFor:count,goalsAgainst:count}).strict();
 export const sportsSnapshot=z.object({season:z.literal(sportSource.season),fetchedAt:z.iso.datetime(),matches:z.array(importedMatch).length(30),standings:z.array(importedStanding).length(16)}).strict();
 export type SportsSnapshot=z.infer<typeof sportsSnapshot>;
-export interface ImportState{enabled:boolean;lastAttemptAt:string|null;lastError:string|null;snapshot:SportsSnapshot|null}
+export interface ImportState{enabled:boolean;lastAttemptAt:string|null;lastError:string|null;retryAt:string|null;lastErrorCode:string|null;lastErrorReference:string|null;snapshot:SportsSnapshot|null}
 export function isStale(value:SportsSnapshot,now=Date.now()){return now-new Date(value.fetchedAt).getTime()>24*60*60*1000;}
 export function sportDate(date:string){return new Date(date+'T12:00:00Z').toLocaleDateString('it-IT',{day:'numeric',month:'long',year:'numeric',timeZone:'Europe/Rome'});}
 export function updateDate(date:string){return new Date(date).toLocaleString('it-IT',{timeZone:'Europe/Rome'});}
 export const matchLabels={result:'Risultato pubblicato',not_available:'Risultato non disponibile',postponed:'Rinviata',cancelled:'Annullata',suspended:'Sospesa'};
+
+export function retrySeconds(retryAt:string|null|undefined,now=Date.now()){return retryAt?Math.max(0,Math.ceil((new Date(retryAt).getTime()-now)/1000)):0;}
