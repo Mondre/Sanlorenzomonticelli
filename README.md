@@ -129,7 +129,7 @@ Il seed è esplicito, transazionale, vietato con `CONTEXT=production` o `NODE_EN
 
 ## Cosa rimane
 
-Upload immagini/storage e rich text sicuro; gestione avanzata e modifica dei singoli collaboratori, CRUD giocatori adulti con consensi e anonimizzazione dei profili; gallerie; timeline degli eventi e formazioni; esportazione ICS; completamento/revisione delle informative societarie e verifiche manuali di accessibilità. È disponibile il collegamento limitato ai dati sportivi essenziali di Romagna Sport, descritto sotto; altre fonti richiedono un connettore dedicato.
+Upload immagini/storage e rich text sicuro; gestione avanzata e modifica dei singoli collaboratori, CRUD giocatori adulti con consensi e anonimizzazione dei profili; gallerie; timeline degli eventi e formazioni; completamento/revisione delle informative societarie e verifiche manuali di accessibilità. È disponibile il collegamento limitato ai dati sportivi essenziali di Romagna Sport, descritto sotto; altre fonti richiedono un connettore dedicato.
 
 Gli avvisi di dipendenze bassi/moderati noti nelle transitive Netlify/Drizzle sono documentati nelle verifiche precedenti; riesaminare `npm audit` prima della pubblicazione. Non eseguire downgrade incompatibili con `--force` solo per silenziare l’audit.
 
@@ -243,3 +243,14 @@ Tra i tentativi, anche simultanei e anche in errore, è applicata una pausa pers
 
 
 In caso di importazione fallita, **Dati automatici** mostra il motivo, un codice diagnostico e un riferimento. Il pulsante di aggiornamento rimane disabilitato fino all’orario del prossimo tentativo indicato nel pannello; **Ricarica stato** non effettua richieste alla fonte. Anche una risposta di limite dei tentativi conserva il motivo dell’errore precedente. I log delle Functions contengono l’evento `sports_import_failure` con codice, fase, eventuale stato HTTP e riferimento, senza contenuti delle pagine, query o credenziali. Un errore di rete, timeout, blocco HTTP/challenge, formato e salvataggio nel database sono distinti: il cooldown non viene presentato come causa del fallimento iniziale.
+
+
+### Salvataggio delle partite nel calendario personale
+
+Le schede partita e le card delle partite gestite dalla società offrono **Salva nel calendario (.ics)** quando è disponibile una data utilizzabile. Nella pagina `/partite` si può scaricare l’intero calendario per la categoria e la modalità selezionate, incluse le gare nelle pagine successive. È un download, senza richiesta di account Google/Microsoft/Apple o accesso ai calendari personali; la pagina include istruzioni per l’importazione nelle tre applicazioni.
+
+L’endpoint pubblico GET `/api/calendar.ics?id=<UUID>` esporta una partita visibile sul sito. Senza `id` accetta `category=<UUID>`, `season=<UUID>` e `mode=upcoming|all|results` (default `upcoming`). Con `upcoming` include gare in corso e gare future programmate o annullate. Sono sempre escluse partite senza data, rinviate e sospese; la singola gara in questi stati restituisce 409. Le partite annullate con data sono marcate `STATUS:CANCELLED`. L’esportazione include solo partite in cui è presente una squadra della società, coerentemente con la visibilità delle schede pubbliche. Se non ci sono eventi restituisce 404; oltre 500 eventi invita a restringere i filtri, senza troncare il file.
+
+Il file iCalendar usa orari UTC, identificatori stabili, ultima modifica della partita, nome delle squadre e campo disponibile, senza inventare ora o durata della gara. I testi sono trattati come testo semplice con escaping e folding UTF-8 secondo RFC 5545. Non esporta cronache, persone, email o inviti. Gli URL delle schede usano `SITE_URL`, oppure `BETTER_AUTH_URL`, con fallback al dominio Netlify della società, mai l’Host della richiesta. Il download contiene una copia dei dati e **non sincronizza automaticamente le variazioni**: il visitatore deve controllare la scheda della gara e aggiornare il proprio calendario.
+
+Il modulo non dipende da Romagna Sport e non effettua chiamate esterne. Legge solo le partite gestite nel database societario. Nessuna migrazione o variabile aggiuntiva è necessaria. I test in `tests/calendar.test.mjs` verificano con PGlite visibilità, filtri, calendario oltre la prima pagina, cancellazioni, date mancanti, stabilità degli identificatori, orari e protezione da contenuti iniettati nel formato ICS.

@@ -78,6 +78,16 @@ export function contentService(db:Executor){
    const items=await rows(db,sql`${matchSelect} WHERE ${sql.join(filters,sql` AND `)} ORDER BY m.kickoff ${mode==='upcoming'?sql`ASC`:sql`DESC`} NULLS LAST,m.id LIMIT 26 OFFSET ${offset}`,matchRow);
    return {items:items.slice(0,25),page,hasMore:items.length>25};
   },
+  async calendarMatches({categoryId,seasonId,mode='upcoming'}:{categoryId?:string;seasonId?:string;mode?:'all'|'upcoming'|'results'}={}){
+   if(categoryId)z.uuid().parse(categoryId);if(seasonId)z.uuid().parse(seasonId);
+   const filters=[sql`(h.is_club=true OR a.is_club=true)`,sql`m.kickoff IS NOT NULL`,sql`m.status IN ('scheduled','live','finished','cancelled')`];
+   if(categoryId)filters.push(sql`cat.id=${categoryId}::uuid`);if(seasonId)filters.push(sql`c.season_id=${seasonId}::uuid`);
+   if(mode==='upcoming')filters.push(sql`(m.status='live' OR (m.status IN ('scheduled','cancelled') AND m.kickoff>=now()))`);
+   if(mode==='results')filters.push(sql`m.status='finished'`);
+   const items=await rows(db,sql`${matchSelect} WHERE ${sql.join(filters,sql` AND `)} ORDER BY m.kickoff,m.id LIMIT 501`,matchRow);
+   if(items.length>500)throw new ContentError(400,'Il calendario contiene troppe partite. Seleziona una categoria o una stagione.');
+   return items;
+  },
   async match(id:string){z.uuid().parse(id);return (await rows(db,sql`${matchSelect} WHERE m.id=${id}::uuid AND (h.is_club=true OR a.is_club=true)`,matchRow))[0]??null;},
   async createMatch(actor:Actor,input:unknown){const data=matchCreate.parse(input);const [competition]=await rows(db,sql`SELECT category_id AS "categoryId" FROM competitions WHERE id=${data.competitionId}::uuid`,z.object({categoryId:z.uuid()}));if(!competition)throw new ContentError(400,'Competizione non disponibile.');if(!can(actor.grants,'matches.write',competition.categoryId))throw new ContentError(403,'Competizione non autorizzata.');const id=randomUUID();return changed(sql`WITH created AS (INSERT INTO matches(id,competition_id,home_team_id,away_team_id,kickoff,round,venue_id,status,home_score,away_score,report) VALUES (${id}::uuid,${data.competitionId}::uuid,${data.homeTeamId}::uuid,${data.awayTeamId}::uuid,${data.kickoff}::timestamptz,${data.round},${data.venueId}::uuid,${data.status}::match_status,${data.homeScore},${data.awayScore},${data.report}) RETURNING id), logged AS (INSERT INTO audit_logs(actor_id,action,entity_type,entity_id) SELECT ${actor.userId},'match.create','matches',id::text FROM created) SELECT id FROM created`);},
   async updateMatch(actor:Actor,input:unknown){const data=matchUpdate.parse(input);await checkMatch(actor,data.id);return changed(sql`WITH updated AS (UPDATE matches m SET kickoff=${data.kickoff}::timestamptz,round=${data.round},venue_id=${data.venueId}::uuid,status=${data.status}::match_status,home_score=${data.homeScore},away_score=${data.awayScore},report=${data.report},updated_at=greatest(date_trunc('milliseconds',clock_timestamp()),date_trunc('milliseconds',m.updated_at)+interval '1 millisecond') WHERE m.id=${data.id}::uuid AND date_trunc('milliseconds',m.updated_at)=${data.version}::timestamptz RETURNING m.id), logged AS (INSERT INTO audit_logs(actor_id,action,entity_type,entity_id) SELECT ${actor.userId},'match.update','matches',id::text FROM updated) SELECT id FROM updated`);},
