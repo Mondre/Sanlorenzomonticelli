@@ -1,3 +1,4 @@
+import {safeImageUrl} from '../../shared/media.ts';
 import {randomUUID} from 'node:crypto';
 import {sql,type SQL} from 'drizzle-orm';
 import {z} from 'zod';
@@ -19,7 +20,7 @@ function newsScope(grants:Grant[],action:'news.read'|'news.write'){
  if(can(grants,action))return sql`true`;
  return sql`EXISTS(SELECT 1 FROM news_categories nc WHERE nc.news_id=n.id) AND NOT EXISTS(SELECT 1 FROM news_categories nc WHERE nc.news_id=n.id AND NOT (${categoryScope(grants,action,sql`nc.category_id`)}))`;
 }
-const newsSelect=sql`SELECT n.id,n.slug,n.title,n.excerpt,n.body,n.status,n.publish_at AS "publishAt",n.featured,n.updated_at AS version,ARRAY(SELECT nc.category_id FROM news_categories nc WHERE nc.news_id=n.id ORDER BY nc.category_id) AS "categoryIds",(SELECT c.name FROM news_categories nc JOIN categories c ON c.id=nc.category_id WHERE nc.news_id=n.id ORDER BY c.sort_order,c.name LIMIT 1) AS "categoryName" FROM news n`;
+const newsSelect=sql`SELECT n.id,n.slug,n.title,n.excerpt,n.body,n.status,n.publish_at AS "publishAt",n.featured,n.cover_id AS "coverId",CASE WHEN cover.publication_consent=true AND cover.mime_type IN ('image/webp','image/png','image/jpeg','image/avif') THEN cover.url ELSE NULL END AS "coverUrl",cover.alt AS "coverAlt",n.updated_at AS version,ARRAY(SELECT nc.category_id FROM news_categories nc WHERE nc.news_id=n.id ORDER BY nc.category_id) AS "categoryIds",(SELECT c.name FROM news_categories nc JOIN categories c ON c.id=nc.category_id WHERE nc.news_id=n.id ORDER BY c.sort_order,c.name LIMIT 1) AS "categoryName" FROM news n LEFT JOIN media cover ON cover.id=n.cover_id`;
 const matchSelect=sql`SELECT m.id,m.competition_id AS "competitionId",c.name AS competition,s.name AS season,cat.id AS "categoryId",cat.name AS category,m.home_team_id AS "homeTeamId",m.away_team_id AS "awayTeamId",h.name AS "homeTeam",a.name AS "awayTeam",m.kickoff,m.round,m.venue_id AS "venueId",v.name AS venue,v.address,v.city,m.status,m.home_score AS "homeScore",m.away_score AS "awayScore",m.report,m.updated_at AS version FROM matches m JOIN competitions c ON c.id=m.competition_id JOIN seasons s ON s.id=c.season_id JOIN categories cat ON cat.id=c.category_id JOIN teams h ON h.id=m.home_team_id JOIN teams a ON a.id=m.away_team_id LEFT JOIN venues v ON v.id=m.venue_id`;
 const visibleNews=sql`n.status IN ('published','scheduled') AND n.publish_at<=now()`;
 function publication(input:{status:string;publishAt:string|null}){
@@ -28,7 +29,10 @@ function publication(input:{status:string;publishAt:string|null}){
  if(!input.publishAt||new Date(input.publishAt)<=new Date())throw new ContentError(400,'Scegli una data futura per la pubblicazione programmata.');
  return input.publishAt;
 }
+function safeArticle<T extends {coverUrl:string|null;coverAlt:string|null}>(article:T):T{const url=safeImageUrl(article.coverUrl);return {...article,coverUrl:url,coverAlt:url?article.coverAlt:null};}
 export function contentService(db:Executor){
+ async function checkCover(id:string|null){if(!id)return;const [cover]=await rows(db,sql`SELECT url FROM media WHERE id=${id}::uuid AND publication_consent=true AND mime_type IN ('image/webp','image/png','image/jpeg','image/avif')`,z.object({url:z.string()}));if(!cover||!safeImageUrl(cover.url))throw new ContentError(400,'La copertina non è disponibile o autorizzata alla pubblicazione.');}
+
  async function checkArticle(actor:Actor,id:string){
   const [article]=await rows(db,sql`${newsSelect} WHERE n.id=${id}::uuid`,articleRow);
   if(!article)throw new ContentError(404,'Notizia non trovata.');
@@ -50,7 +54,8 @@ export function contentService(db:Executor){
    const competitions=await rows(db,sql`SELECT c.id,c.name,c.category_id AS "categoryId",s.name AS season FROM competitions c JOIN seasons s ON s.id=c.season_id WHERE ${categoryScope(grants,'matches.write',sql`c.category_id`)} ORDER BY s.starts_on DESC,c.name`,z.object({id:z.uuid(),name:z.string(),categoryId:z.uuid(),season:z.string()}));
    const participants=competitions.length?await rows(db,sql`SELECT ct.competition_id AS "competitionId",t.id AS "teamId",t.name FROM competition_teams ct JOIN teams t ON t.id=ct.team_id WHERE ct.competition_id IN (${inIds(competitions.map(c=>c.id))}) ORDER BY t.name`,z.object({competitionId:z.uuid(),teamId:z.uuid(),name:z.string()})):[];
    const venues=await rows(db,sql`SELECT id,name FROM venues ORDER BY name`,z.object({id:z.uuid(),name:z.string()}));
-   return {categories:allowed,competitions,participants,venues};
+   const media=await rows(db,sql`SELECT id,alt,url FROM media WHERE publication_consent=true AND mime_type IN ('image/webp','image/png','image/jpeg','image/avif') ORDER BY created_at DESC LIMIT 500`,z.object({id:z.uuid(),alt:z.string(),url:z.string()}));
+   return {categories:allowed,competitions,participants,venues,media:media.filter(m=>safeImageUrl(m.url)).map(({id,alt})=>({id,alt}))};
   },
   async listAdminNews(grants:Grant[],page=1){const offset=pagination(page);const items=await rows(db,sql`${newsSelect} WHERE ${newsScope(grants,'news.read')} ORDER BY n.updated_at DESC,n.id LIMIT 26 OFFSET ${offset}`,articleRow);return {items:items.slice(0,25),page,hasMore:items.length>25};},
   async listPublicNews({page=1,search='',categoryId}:{page?:number;search?:string;categoryId?:string}={}){
@@ -58,16 +63,16 @@ export function contentService(db:Executor){
    const filters=[visibleNews];if(search)filters.push(sql`(n.title ILIKE ${'%'+search.replace(/[\%_]/g,'\$&')+'%'} OR n.excerpt ILIKE ${'%'+search.replace(/[\%_]/g,'\$&')+'%'})`);
    if(categoryId)filters.push(sql`EXISTS(SELECT 1 FROM news_categories nc WHERE nc.news_id=n.id AND nc.category_id=${categoryId}::uuid)`);
    const items=await rows(db,sql`${newsSelect} WHERE ${sql.join(filters,sql` AND `)} ORDER BY n.featured DESC,n.publish_at DESC,n.id LIMIT 26 OFFSET ${offset}`,articleRow);
-   return {items:items.slice(0,25),page,hasMore:items.length>25};
+   return {items:items.slice(0,25).map(safeArticle),page,hasMore:items.length>25};
   },
-  async article(slug:string){if(!/^[a-z0-9-]{1,180}$/.test(slug))return null;return (await rows(db,sql`${newsSelect} WHERE n.slug=${slug} AND ${visibleNews}`,articleRow))[0]??null;},
+  async article(slug:string){if(!/^[a-z0-9-]{1,180}$/.test(slug))return null;const article=(await rows(db,sql`${newsSelect} WHERE n.slug=${slug} AND ${visibleNews}`,articleRow))[0];return article?safeArticle(article):null;},
   async createNews(actor:Actor,input:unknown){
    const data=newsCreate.parse(input);if(!can(actor.grants,'news.write',data.categoryId))throw new ContentError(403,'Categoria non autorizzata.');
-   const [category]=await rows(db,sql`SELECT id FROM categories WHERE id=${data.categoryId}::uuid AND active=true`,idRow);if(!category)throw new ContentError(400,'Categoria non disponibile.');
+   const [category]=await rows(db,sql`SELECT id FROM categories WHERE id=${data.categoryId}::uuid AND active=true`,idRow);if(!category)throw new ContentError(400,'Categoria non disponibile.');await checkCover(data.coverId);
    const id=randomUUID(),slug=data.title.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,140)+'-'+id.slice(0,8),date=publication(data);
-   return changed(sql`WITH created AS (INSERT INTO news(id,slug,title,excerpt,body,status,publish_at,featured,author_id) VALUES (${id}::uuid,${slug},${data.title},${data.excerpt},${data.body},${data.status}::news_status,${date}::timestamptz,${data.featured},${actor.userId}) RETURNING id), categorized AS (INSERT INTO news_categories(news_id,category_id) SELECT id,${data.categoryId}::uuid FROM created), logged AS (INSERT INTO audit_logs(actor_id,action,entity_type,entity_id) SELECT ${actor.userId},'news.create','news',id::text FROM created) SELECT id FROM created`);
+   return changed(sql`WITH touched_media AS (UPDATE media SET alt=alt WHERE id=${data.coverId}::uuid RETURNING id), created AS (INSERT INTO news(id,slug,title,excerpt,body,status,publish_at,featured,cover_id,author_id) VALUES (${id}::uuid,${slug},${data.title},${data.excerpt},${data.body},${data.status}::news_status,${date}::timestamptz,${data.featured},${data.coverId}::uuid,${actor.userId}) RETURNING id), categorized AS (INSERT INTO news_categories(news_id,category_id) SELECT id,${data.categoryId}::uuid FROM created), logged AS (INSERT INTO audit_logs(actor_id,action,entity_type,entity_id) SELECT ${actor.userId},'news.create','news',id::text FROM created) SELECT id FROM created`);
   },
-  async updateNews(actor:Actor,input:unknown){const data=newsUpdate.parse(input);await checkArticle(actor,data.id);const date=publication(data);return changed(sql`WITH updated AS (UPDATE news n SET title=${data.title},excerpt=${data.excerpt},body=${data.body},status=${data.status}::news_status,publish_at=${date}::timestamptz,featured=${data.featured},updated_at=greatest(date_trunc('milliseconds',clock_timestamp()),date_trunc('milliseconds',n.updated_at)+interval '1 millisecond') WHERE n.id=${data.id}::uuid AND date_trunc('milliseconds',n.updated_at)=${data.version}::timestamptz AND ${newsScope(actor.grants,'news.write')} RETURNING n.id), logged AS (INSERT INTO audit_logs(actor_id,action,entity_type,entity_id) SELECT ${actor.userId},'news.update','news',id::text FROM updated) SELECT id FROM updated`);},
+  async updateNews(actor:Actor,input:unknown){const data=newsUpdate.parse(input);await checkArticle(actor,data.id);await checkCover(data.coverId);const date=publication(data);return changed(sql`WITH touched_media AS (UPDATE media SET alt=alt WHERE id=${data.coverId}::uuid RETURNING id), updated AS (UPDATE news n SET title=${data.title},excerpt=${data.excerpt},body=${data.body},status=${data.status}::news_status,publish_at=${date}::timestamptz,featured=${data.featured},cover_id=${data.coverId}::uuid,updated_at=greatest(date_trunc('milliseconds',clock_timestamp()),date_trunc('milliseconds',n.updated_at)+interval '1 millisecond') WHERE n.id=${data.id}::uuid AND date_trunc('milliseconds',n.updated_at)=${data.version}::timestamptz AND ${newsScope(actor.grants,'news.write')} RETURNING n.id), logged AS (INSERT INTO audit_logs(actor_id,action,entity_type,entity_id) SELECT ${actor.userId},'news.update','news',id::text FROM updated) SELECT id FROM updated`);},
   async deleteNews(actor:Actor,input:unknown){const data=deleteInput.parse(input);await checkArticle(actor,data.id);return changed(sql`WITH deleted AS (DELETE FROM news n WHERE n.id=${data.id}::uuid AND date_trunc('milliseconds',n.updated_at)=${data.version}::timestamptz AND ${newsScope(actor.grants,'news.write')} RETURNING n.id), logged AS (INSERT INTO audit_logs(actor_id,action,entity_type,entity_id) SELECT ${actor.userId},'news.delete','news',id::text FROM deleted) SELECT id FROM deleted`);},
   async listAdminMatches(grants:Grant[],page=1){const offset=pagination(page);const items=await rows(db,sql`${matchSelect} WHERE ${categoryScope(grants,'matches.read',sql`c.category_id`)} ORDER BY m.kickoff DESC NULLS LAST,m.id LIMIT 26 OFFSET ${offset}`,matchRow);return {items:items.slice(0,25),page,hasMore:items.length>25};},
   async listPublicMatches({page=1,categoryId,seasonId,mode='all'}:{page?:number;categoryId?:string;seasonId?:string;mode?:'all'|'upcoming'|'results'}={}){

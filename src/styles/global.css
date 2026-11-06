@@ -26,3 +26,5 @@
 .calendar-export{margin-block:1.25rem}.calendar-export p{max-width:75ch;margin-top:.8rem;margin-bottom:0}
 
 .calendar-help{margin-top:1rem;max-width:75ch}.calendar-help summary{cursor:pointer;font-weight:700}.calendar-help li{margin-block:.6rem;line-height:1.6}
+
+.media-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:1.25rem;margin-block:1.5rem}.media-preview{width:100%;height:220px;object-fit:contain;background:var(--canvas)}.news-cover{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;border-radius:.75rem;margin-bottom:1rem}.article-cover{width:100%;height:auto;max-height:650px;object-fit:contain;margin-block:1rem 2rem}

@@ -72,3 +72,9 @@ test('privacy e cookie: informativa configurata oppure stato di indisponibilità
 test('stagione malformata delle squadre rifiutata prima della query',async()=>{
  assert.equal((await fetch(new URL('/squadre/prima-squadra?season=invalid',base))).status,400);
 });
+
+test('immagini pubbliche: percorsi malformati e formati non previsti restituiscono 404',async()=>{
+ for(const path of ['/media/invalid.webp','/media/90000000-0000-4000-8000-000000000001.svg']){
+  const response=await fetch(new URL(path,base));assert.equal(response.status,404);assert.doesNotMatch(await response.text(),/DATABASE_URL|NETLIFY_AUTH_TOKEN|postgres(?:ql)?:\/\//);
+ }
+});

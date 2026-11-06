@@ -71,7 +71,7 @@ Password da 14 a 128 caratteri. Non scrivere password nei comandi salvati nella 
 
 I permessi sono riletti sul server; la loro revoca vale dalla richiesta successiva. Le API verificano sia lo scope originale sia il contenuto da modificare e rifiutano campi estranei. I conteggi globali della dashboard sono riservati agli amministratori globali. La registrazione pubblica è disabilitata; cookie HttpOnly/Secure/SameSite=Lax su HTTPS, sessioni PostgreSQL di 8 ore, nessun token in localStorage. Better Auth mantiene i controlli di origine. Il rate limiting del login è persistente; l’IP proviene dal contesto Netlify, non dalle intestazioni liberamente inviate dal client.
 
-L’editor attuale è di **testo semplice**: React e Astro eseguono l’escaping, senza rendering HTML arbitrario. Non sono ancora implementati editor rich text e upload immagini. Le API pubbliche non esportano dati dei giocatori o richieste personali; la creazione di categorie non abilita la pubblicazione delle rose, che rimane disattivata. Pianificare conservazione e cancellazione di sessioni, contatori e audit con la società. Nessuna certificazione GDPR o WCAG è dichiarata.
+L’editor attuale è di **testo semplice**: React e Astro eseguono l’escaping, senza rendering HTML arbitrario. L’editor rimane in testo semplice; il caricamento immagini è disponibile nella Libreria immagini amministrativa. Le API pubbliche non esportano dati dei giocatori o richieste personali; la creazione di categorie non abilita la pubblicazione delle rose, che rimane disattivata. Pianificare conservazione e cancellazione di sessioni, contatori e audit con la società. Nessuna certificazione GDPR o WCAG è dichiarata.
 
 ## Pubblicazione su Netlify
 
@@ -129,7 +129,7 @@ Il seed è esplicito, transazionale, vietato con `CONTEXT=production` o `NODE_EN
 
 ## Cosa rimane
 
-Upload immagini/storage e rich text sicuro; gestione avanzata e modifica dei singoli collaboratori, CRUD giocatori adulti con consensi e anonimizzazione dei profili; gallerie; timeline degli eventi e formazioni; completamento/revisione delle informative societarie e verifiche manuali di accessibilità. È disponibile il collegamento limitato ai dati sportivi essenziali di Romagna Sport, descritto sotto; altre fonti richiedono un connettore dedicato.
+Editor rich text sicuro; gestione avanzata e modifica dei singoli collaboratori, CRUD giocatori adulti con consensi e anonimizzazione dei profili; gallerie; timeline degli eventi e formazioni; completamento/revisione delle informative societarie e verifiche manuali di accessibilità. È disponibile il collegamento limitato ai dati sportivi essenziali di Romagna Sport, descritto sotto; altre fonti richiedono un connettore dedicato.
 
 Gli avvisi di dipendenze bassi/moderati noti nelle transitive Netlify/Drizzle sono documentati nelle verifiche precedenti; riesaminare `npm audit` prima della pubblicazione. Non eseguire downgrade incompatibili con `--force` solo per silenziare l’audit.
 
@@ -220,7 +220,7 @@ Verifiche: 79 test database/autenticazione/dominio passati; 14 test HTTP passati
 
 Gli amministratori possono gestire **Sponsor e partner** e **Campi sportivi** nel pannello. Le pagine pubbliche `/sponsor` e `/campi` leggono i dati reali da Neon; la home mostra fino a sei sponsor attivi, ordinati secondo la priorità scelta. Uno sponsor può essere disattivato senza cancellarlo. I link ai siti devono essere HTTPS pubblici.
 
-I loghi sono selezionabili dai media già registrati con consenso alla pubblicazione, formato PNG/JPEG/WebP/AVIF e URL HTTPS senza parametri. La revoca del consenso nasconde il logo nelle letture successive. In assenza di immagini si mostra il nome; questa sezione non introduce upload o storage. Verificare il fornitore dei media nella documentazione privacy prima di usare immagini esterne.
+I loghi sono selezionabili dai media già registrati con consenso alla pubblicazione, formato PNG/JPEG/WebP/AVIF e URL HTTPS senza parametri. La revoca del consenso nasconde il logo nelle letture successive. In assenza di immagini si mostra il nome; i nuovi file si caricano dalla Libreria immagini amministrativa. Verificare il fornitore dei media nella documentazione privacy prima di usare immagini esterne.
 
 Per ogni campo si gestiscono nome, indirizzo, città, indicazioni e parcheggio. Il collegamento Google Maps viene costruito dall’indirizzo; un campo associato a partite non può essere eliminato. L’API `/api/admin/club-content?kind=sponsors|venues` supporta GET/POST/PUT/DELETE, paginazione, controllo di origine, audit atomico e controllo delle modifiche concorrenti tramite versione PostgreSQL `xmin`. Editor e responsabili di categoria non accedono a queste funzioni.
 
@@ -254,3 +254,15 @@ L’endpoint pubblico GET `/api/calendar.ics?id=<UUID>` esporta una partita visi
 Il file iCalendar usa orari UTC, identificatori stabili, ultima modifica della partita, nome delle squadre e campo disponibile, senza inventare ora o durata della gara. I testi sono trattati come testo semplice con escaping e folding UTF-8 secondo RFC 5545. Non esporta cronache, persone, email o inviti. Gli URL delle schede usano `SITE_URL`, oppure `BETTER_AUTH_URL`, con fallback al dominio Netlify della società, mai l’Host della richiesta. Il download contiene una copia dei dati e **non sincronizza automaticamente le variazioni**: il visitatore deve controllare la scheda della gara e aggiornare il proprio calendario.
 
 Il modulo non dipende da Romagna Sport e non effettua chiamate esterne. Legge solo le partite gestite nel database societario. Nessuna migrazione o variabile aggiuntiva è necessaria. I test in `tests/calendar.test.mjs` verificano con PGlite visibilità, filtri, calendario oltre la prima pagina, cancellazioni, date mancanti, stabilità degli identificatori, orari e protezione da contenuti iniettati nel formato ICS.
+
+
+### Immagini, verifiche e recupero
+
+- **Libreria immagini**: caricamento amministrativo su Netlify Blobs, validazione e conversione WebP con Sharp, descrizione, consenso, revoca ed eliminazione dei soli file inutilizzati. Copertine delle notizie e loghi sponsor collegati dal pannello. Usa tabelle esistenti, senza nuove migrazioni.
+- **Verifica servizi** nella dashboard: query DB e prova temporanea di scrittura/lettura/rimozione nello storage reale.
+- `npm run smoke:live`: controlli HTTP di sola lettura del sito pubblicato, senza login.
+- `npm run db:backup -- --out backups/portale.slmbak`: backup manuale cifrato. `--with-media` include i file immagine gestiti; richiede le credenziali storage nel terminale sicuro.
+- `npm run db:restore -- --file backups/portale.slmbak`: ripristino solo in un database vuoto separato. Nessuna commutazione del sito o sovrascrittura della sorgente.
+- `npm run test:backup-drill`: prova di recupero su PostgreSQL 18 temporaneo in Docker.
+
+Istruzioni complete in [docs/operations.md](docs/operations.md) e [docs/collaudo.md](docs/collaudo.md). Non sono attivati backup automatici o destinazioni di archiviazione esterne. Il primo backup reale e il collaudo autenticato dello storage Netlify restano operazioni da eseguire con gli accessi del proprietario; i test di sviluppo non li sostituiscono.
