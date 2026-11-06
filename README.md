@@ -11,7 +11,7 @@ Portale calcistico con Astro, React, TypeScript, Tailwind, Netlify Functions, Be
 - `/richieste`: informazioni/prove/segreteria con dati del referente adulto, consenso e antispam persistente. Il modulo resta disabilitato fino alla pubblicazione dell’informativa.
 - `/privacy` e `/cookie`: informativa delle richieste configurabile e informazioni sui cookie tecnici del portale.
 - `/classifiche`: competizione e stagione selezionabili, punti dai risultati terminati e rettifiche. L’ordine a parità di punti è indicativo, da confrontare con i regolamenti ufficiali.
-- `/admin`: accesso email/password, sessioni e permessi server; configurazione iniziale sportiva; notizie con bozze/pubblicazione/programmazione/modifica/eliminazione confermata; creazione partite e aggiornamento di stato, risultato, campo e cronaca; gestione squadre/staff e richieste alla segreteria.
+- `/admin`: accesso email/password, sessioni e permessi server; configurazione iniziale sportiva; notizie con bozze/pubblicazione/programmazione/modifica/eliminazione confermata; creazione partite e aggiornamento di stato, risultato, campo e cronaca; gestione squadre/staff e richieste alla segreteria; utenti/permessi per super amministratori e cambio password personale.
 - Configurazione iniziale: creazione/modifica/disattivazione/ordinamento categorie; creazione stagioni, competizioni e partecipanti; creazione campi sportivi. Le squadre con stesso nome, categoria e stagione vengono riutilizzate.
 - Audit delle scritture, controllo di versione per notizie e partite, validazione Zod, query parametrizzate, protezione origine/CSRF per le mutazioni e limite di 64 KiB ai payload JSON.
 
@@ -87,6 +87,7 @@ Per questa versione con pagine dinamiche e API serve il deploy **da repository o
 - `/api/admin/matches`: GET paginata, POST creazione, PUT aggiornamento.
 - `/api/admin/setup`: configurazione sportiva, solo amministratori globali.
 - `/api/club-feed`: GET pubblica per homepage.
+- `/api/admin/users`: gestione riservata ai super amministratori.
 - `/api/admin/teams`: squadre della società e staff, con scope per categoria.
 - `/api/admin/requests`: elenco paginato, presa in carico/chiusura ed eliminazione delle richieste, solo amministratori globali.
 - `/api/admin/request-settings`: configurazione/versioni dell’informativa, solo amministratori globali.
@@ -128,7 +129,7 @@ Il seed è esplicito, transazionale, vietato con `CONTEXT=production` o `NODE_EN
 
 ## Cosa rimane
 
-Upload immagini/storage e rich text sicuro; gestione avanzata e modifica dei singoli collaboratori, CRUD giocatori adulti con consensi e gestione utenti; sponsor; gallerie; timeline degli eventi e formazioni; esportazione ICS; completamento/revisione delle informative societarie e verifiche manuali di accessibilità. L’importazione automatica di calendari e risultati richiede la fonte ufficiale e la verifica delle sue API/licenze/autorizzazioni: nessuno scraping è attivo.
+Upload immagini/storage e rich text sicuro; gestione avanzata e modifica dei singoli collaboratori, CRUD giocatori adulti con consensi e anonimizzazione dei profili; sponsor; gallerie; timeline degli eventi e formazioni; esportazione ICS; completamento/revisione delle informative societarie e verifiche manuali di accessibilità. L’importazione automatica di calendari e risultati richiede la fonte ufficiale e la verifica delle sue API/licenze/autorizzazioni: nessuno scraping è attivo.
 
 Gli avvisi di dipendenze bassi/moderati noti nelle transitive Netlify/Drizzle sono documentati nelle verifiche precedenti; riesaminare `npm audit` prima della pubblicazione. Non eseguire downgrade incompatibili con `--force` solo per silenziare l’audit.
 
@@ -190,3 +191,26 @@ Da un terminale sicuro con Node 24 e checkout aggiornato, configurare temporanea
 Il comando aggiorna solo un super amministratore globale già esistente, conserva account/contenuti/permessi, revoca tutte le sue sessioni e registra un evento di manutenzione senza credenziali. È un singolo comando SQL atomico con query parametrizzata e hash scrypt Better Auth. Non è esposto come API web. Con email non trovata o senza ruolo appropriato restituisce ADMIN_NOT_FOUND e non promuove né crea utenti. In quel caso verificare l’email e il database effettivo; il bootstrap iniziale resta la procedura per un database privo di amministratore.
 
 Verifiche: 5 test PostgreSQL passati (nuova password, rifiuto vecchia password/sessione, conservazione dati, email assente e utente senza privilegi); TypeScript senza errori/avvisi. Il ripristino sul database reale deve essere eseguito dall’operatore nel proprio terminale sicuro.
+
+
+## Utenti, permessi e cambio password
+
+La sezione **Utenti e permessi** è riservata ai super amministratori globali. Consente creazione degli account con password iniziale, assegnazione di un ruolo e delle categorie, riattivazione/disattivazione, aggiornamento del nome e reimpostazione della password degli altri collaboratori. L’email di accesso rimane immutabile in questa schermata. Non vengono inviate email automatiche: comunicare le credenziali con un canale privato e invitare il collaboratore a usare **La mia password**.
+
+I responsabili devono avere almeno una categoria. I redattori possono ricevere categorie specifiche oppure tutte le notizie, con una scelta esplicita. I ruoli amministrativi sono globali. Non sono ammessi ruoli arbitrari, categorie inesistenti o campi estranei; password, hash e token non sono restituiti nell’elenco utenti. Una modifica dei permessi o una reimpostazione della password revoca le sessioni del destinatario. Disattivare elimina i grant e blocca nuovi login; riattivare richiede una nuova assegnazione esplicita. Identità e riferimenti editoriali sono conservati: la disattivazione non è una cancellazione/anonimizzazione GDPR.
+
+Ogni utente autorizzato può cambiare la propria password dalla sezione **La mia password**, indicando la password corrente e confermando la nuova. Better Auth rinnova la sessione corrente e chiude le altre; nessun token viene salvato in localStorage. Da Utenti e permessi non è consentito modificare il proprio account o reimpostare la propria password: usare la funzione personale o, per il recupero del super amministratore, lo script CLI documentato sopra.
+
+### Attivazione della protezione dell’ultimo amministratore
+
+Dal checkout aggiornato in Codespaces, con la stessa DATABASE_URL di Netlify impostata temporaneamente nel terminale sicuro, eseguire `npm run db:migrate`. La migrazione `0004_protect_last_super_admin` aggiunge una funzione e un trigger PostgreSQL per preservare almeno un grant super amministrativo globale nelle cancellazioni/modifiche, serializzando le rimozioni. Le definizioni supportano una riesecuzione in caso di applicazione DDL parziale.
+
+Le nuove scritture di gestione utenti verificano che il trigger sia presente e abilitato, oltre al ruolo attuale dell’operatore nel database. Finché manca la migrazione, la sezione è di sola lettura e segnala il passo richiesto. Non sono aggiunte colonne necessarie al login: il controllo di account attivo usa le tabelle ruoli/permessi già esistenti. Gli account privi di grant validi non ricevono nuove sessioni; le autorizzazioni continuano a essere rilette dal server.
+
+Creazioni, modifiche e reset amministrativi utilizzano SQL parametrizzato e CTE atomiche con audit. Le versioni dei profili prevengono sovrascritture concorrenti. Le password passano soltanto nel corpo HTTPS della richiesta autenticata e sono hashate dal backend con Better Auth. Non sono mostrate negli elenchi né copiate nell’audit. Inviti email, modifica email con verifica e anonimizzazione degli account sono sviluppi successivi.
+
+### File della gestione utenti
+
+`src/shared/users.ts`; `src/server/users/access.ts`, `service.ts`; `src/components/admin/UsersManager.tsx`, `ChangePassword.tsx`; `netlify/functions/admin-users.ts`; `drizzle/0004_protect_last_super_admin.sql` e metadati; `tests/users.test.mjs`. Aggiornati integrazione Better Auth, dashboard, stili e script di test.
+
+Verifiche: 79 test database/autenticazione/dominio passati; 14 test HTTP passati; 4 controlli della Function compilata (metodi, origine e indisponibilità senza configurazione); TypeScript su 94 file senza errori/avvisi e build Netlify completata. Non sono stati creati, disattivati o modificati account reali nel database dell’utente durante queste verifiche. Applicazione della migrazione e collaudo sul sito dell’utente restano da eseguire nell’ambiente di produzione.

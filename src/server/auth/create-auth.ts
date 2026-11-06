@@ -1,13 +1,15 @@
 import {safeAuthFailure,type AuthFailureCode} from './diagnostics.ts';
+import {APIError} from 'better-auth/api';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { users, sessions, accounts, verifications, authRateLimits } from '../db/schema.ts';
 import type { AuthConfiguration } from './config.ts';
-export function createAuth(db: Parameters<typeof drizzleAdapter>[0], config: AuthConfiguration, report?:(code:AuthFailureCode)=>void) {
+export function createAuth(db: Parameters<typeof drizzleAdapter>[0], config: AuthConfiguration, report?:(code:AuthFailureCode)=>void, accessCheck?:(userId:string)=>Promise<boolean>) {
  return betterAuth({
   appName:'San Lorenzo Monticelli', baseURL:config.origin,basePath:'/api/auth',secret:config.secret,
   trustedOrigins:[config.origin],
   database:drizzleAdapter(db,{provider:'pg',transaction:false,schema:{user:users,session:sessions,account:accounts,verification:verifications,rateLimit:authRateLimits}}),
+  databaseHooks:accessCheck?{session:{create:{before:async session=>{if(!await accessCheck(session.userId))throw new APIError('FORBIDDEN',{message:'Account senza accesso attivo.'});return {data:session};}}}}:undefined,
   emailAndPassword:{enabled:true,disableSignUp:true,minPasswordLength:14,maxPasswordLength:128},
   session:{expiresIn:60*60*8,updateAge:60*60,cookieCache:{enabled:false}},
   rateLimit:{enabled:true,storage:'database',window:60,max:60,customRules:{'/sign-in/email':{window:60,max:5}}},
