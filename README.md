@@ -129,7 +129,7 @@ Il seed è esplicito, transazionale, vietato con `CONTEXT=production` o `NODE_EN
 
 ## Cosa rimane
 
-Upload immagini/storage e rich text sicuro; gestione avanzata e modifica dei singoli collaboratori, CRUD giocatori adulti con consensi e anonimizzazione dei profili; gallerie; timeline degli eventi e formazioni; esportazione ICS; completamento/revisione delle informative societarie e verifiche manuali di accessibilità. L’importazione automatica di calendari e risultati richiede la fonte ufficiale e la verifica delle sue API/licenze/autorizzazioni: nessuno scraping è attivo.
+Upload immagini/storage e rich text sicuro; gestione avanzata e modifica dei singoli collaboratori, CRUD giocatori adulti con consensi e anonimizzazione dei profili; gallerie; timeline degli eventi e formazioni; esportazione ICS; completamento/revisione delle informative societarie e verifiche manuali di accessibilità. È disponibile il collegamento limitato ai dati sportivi essenziali di Romagna Sport, descritto sotto; altre fonti richiedono un connettore dedicato.
 
 Gli avvisi di dipendenze bassi/moderati noti nelle transitive Netlify/Drizzle sono documentati nelle verifiche precedenti; riesaminare `npm audit` prima della pubblicazione. Non eseguire downgrade incompatibili con `--force` solo per silenziare l’audit.
 
@@ -225,3 +225,18 @@ I loghi sono selezionabili dai media già registrati con consenso alla pubblicaz
 Per ogni campo si gestiscono nome, indirizzo, città, indicazioni e parcheggio. Il collegamento Google Maps viene costruito dall’indirizzo; un campo associato a partite non può essere eliminato. L’API `/api/admin/club-content?kind=sponsors|venues` supporta GET/POST/PUT/DELETE, paginazione, controllo di origine, audit atomico e controllo delle modifiche concorrenti tramite versione PostgreSQL `xmin`. Editor e responsabili di categoria non accedono a queste funzioni.
 
 Si usano le tabelle esistenti, senza nuove migrazioni. Verifiche del modulo in `tests/club-content.test.mjs` con database PGlite temporaneo, senza accesso al database pubblico. L’importazione da Tuttocampo rimane sospesa in attesa di un canale autorizzato e accessibile.
+
+
+### Dati automatici da Romagna Sport
+
+In **Area amministrativa → Dati automatici**, attivare la fonte e premere **Aggiorna ora** per il primo caricamento. È richiesta la sessione di un amministratore o super amministratore. Non occorrono nuove migrazioni o credenziali della fonte; si usano le tabelle `site_settings` e `audit_logs` già esistenti. La fonte è inizialmente disattivata. Disattivarla nasconde i dati automatici e conserva l’ultimo aggiornamento nel database.
+
+Il collegamento riguarda soltanto la prima squadra: **San Lorenzo Monticelli, ID 13497, Prima Categoria Girone A, ID 282, stagione 2026/2027**. Legge due pagine pubbliche fisse: calendario e classifica. Estrae 30 gare della squadra e i dati numerici delle 16 squadre del girone. Non importa rose, persone, marcatori, foto, loghi, articoli o HTML della fonte. La scheda della squadra è soltanto un collegamento informativo, non viene scaricata dal connettore.
+
+I dati vengono mostrati in home, `/partite` (senza un filtro di categoria) e `/classifiche` (senza una competizione locale selezionata), con fonte, stagione e data dell’ultimo aggiornamento. L’elenco importato è distinto dalle partite gestite manualmente: nessun risultato locale viene sovrascritto o ricalcolato a partire dai dati esterni. La classifica segue posizioni e punti della fonte, incluse eventuali rettifiche. Il calendario non fornisce qui l’orario delle singole gare: non vengono inventati orari né campi. `N.G.` resta un risultato non disponibile, mai 0–0.
+
+La Function Netlify `sync-sports` prevede aggiornamenti alle **06:15, 12:15, 18:15 e 23:15 UTC**, soltanto quando la fonte è attiva. Il calendario stagionale è fissato esplicitamente e l’esecuzione programmata termina il 1° luglio 2027: non viene indovinato il girone della stagione successiva. La pianificazione funziona sul deploy Netlify pubblicato; non viene avviata dalla build o dall’ambiente locale. Il primo aggiornamento manuale e l’invocazione pianificata sul provider vanno verificati dopo un futuro deploy: questo sviluppo non pubblica il sito e non scrive nel Neon di produzione.
+
+Tra i tentativi, anche simultanei e anche in errore, è applicata una pausa persistente di 15 minuti. La lettura pubblica `/api/sports-feed` usa solo la copia nel database: le visite non causano richieste alla fonte. Gli endpoint amministrativi sono GET/PUT/POST `/api/admin/sports-import`; le mutazioni richiedono origine valida e JSON. Le richieste esterne hanno URL fissi, niente redirect, timeout di 8 secondi per pagina e limite di 1 MB. Il parser verifica stagione, squadre, giornate, duplicati, copertura completa del calendario e coerenza numerica della classifica. Se un controllo fallisce, non sostituisce l’ultimo snapshot valido. Dopo 24 ore senza aggiornamenti, le pagine avvisano che i dati potrebbero essere superati. Non è un servizio di risultati live: data e variazioni vanno verificate sulla fonte.
+
+`tests/sports-import.test.mjs` usa fixture contenenti solo dati sportivi essenziali e un PostgreSQL PGlite temporaneo per provare importazione, permessi, concorrenza, limite dei tentativi, idempotenza e conservazione dell’ultimo aggiornamento valido. La struttura HTML esterna può cambiare: in quel caso il connettore richiede manutenzione.

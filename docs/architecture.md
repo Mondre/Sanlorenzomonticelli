@@ -74,3 +74,10 @@ La migrazione custom 0004 installa una protezione PostgreSQL sulle rimozioni/mod
 ## Sponsor e impianti
 
 Sponsor e campi riusano le tabelle esistenti e la versione PostgreSQL `xmin` per impedire sovrascritture concorrenti. Ogni mutazione è accompagnata da audit nello stesso statement CTE; il vincolo esterno delle partite impedisce di cancellare impianti utilizzati. Le API rileggono la sessione e i grant, consentono la gestione soltanto agli amministratori e applicano i controlli di origine alle scritture. Le letture pubbliche espongono DTO ridotti, sponsor attivi e loghi con consenso e formato ammesso verificati al momento della lettura. Non effettuano richieste server verso URL dei partner; i link sono HTTPS e le mappe hanno destinazione Google Maps fissa. Upload e importazioni da fonti esterne restano separati.
+
+
+## Importazione dei dati sportivi essenziali
+
+Il connettore Romagna Sport è fissato alla stagione 2026/2027 e al girone della prima squadra, con due sole URL server predefinite. Cheerio interpreta HTML non eseguito; il parser restituisce esclusivamente squadre, date, risultati e statistiche aggregate della classifica. Nessun HTML remoto entra nei componenti e nessuna informazione individuale viene conservata. I controlli sulla copertura del girone impediscono di sostituire dati validi con pagine vuote, challenge, stagioni diverse o calendari incompleti.
+
+Lo snapshot validato e la configurazione risiedono in chiavi dedicate di `site_settings`. Un upsert condizionale sulla chiave del tentativo garantisce il cooldown globale di 15 minuti, con token per associare il salvataggio al tentativo corrente. Snapshot e audit vengono salvati nello stesso statement CTE. L’errore conserva lo snapshot precedente; il client segnala dati più vecchi di 24 ore. La Function pianificata legge il flag amministrativo e non espone una route di sincronizzazione pubblica; l’API pubblica restituisce soltanto lo snapshot della fonte attiva. Le tabelle editoriali delle partite restano autonome, evitando sovrascritture e duplicazioni nel database locale.
