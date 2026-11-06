@@ -182,3 +182,11 @@ La Function `auth` registra un evento JSON `auth_failure` con `reference`, `stag
 Dopo un deploy aggiornato, aprire `/api/auth/ok`. In caso di 503, cercare il riferimento in Netlify → Functions → auth → Logs. Condividere solo `code` e `stage`, non log completi. Codici `DATABASE_URL_MISSING`, `AUTH_SECRET_MISSING`, `AUTH_SECRET_TOO_SHORT`, `AUTH_URL_MISSING` e `AUTH_URL_INVALID` distinguono problemi delle variabili runtime. `DATABASE_SCHEMA_MISSING`/`DATABASE_SCHEMA_OUTDATED` indicano migrazioni da verificare nel database/branch effettivamente usato dalla Function; `DATABASE_AUTH_FAILED`, `DATABASE_NETWORK_ERROR` e `CLIENT_IP_UNAVAILABLE` guidano le diagnosi successive senza esporre i valori. Un codice non dimostra da solo che il collegamento remoto sia stato riparato.
 
 Verifiche della modifica: 14 test autenticazione/diagnostica passati, typecheck senza errori/avvisi e build completata; Function compilata verificata nei rami di configurazione mancante/invalida e contesto IP non valido, controllando che valori sensibili non compaiano nei log o nelle risposte.
+
+## Ripristinare la password del primo amministratore
+
+Da un terminale sicuro con Node 24 e checkout aggiornato, configurare temporaneamente DATABASE_URL (la stessa di Netlify), ADMIN_RESET_EMAIL e ADMIN_RESET_PASSWORD (14–128 caratteri), quindi eseguire `npm run admin:reset-password`. Usare input nascosto per connessione e password; non scrivere segreti nella cronologia o nei file Git. Rimuovere le tre variabili al termine.
+
+Il comando aggiorna solo un super amministratore globale già esistente, conserva account/contenuti/permessi, revoca tutte le sue sessioni e registra un evento di manutenzione senza credenziali. È un singolo comando SQL atomico con query parametrizzata e hash scrypt Better Auth. Non è esposto come API web. Con email non trovata o senza ruolo appropriato restituisce ADMIN_NOT_FOUND e non promuove né crea utenti. In quel caso verificare l’email e il database effettivo; il bootstrap iniziale resta la procedura per un database privo di amministratore.
+
+Verifiche: 5 test PostgreSQL passati (nuova password, rifiuto vecchia password/sessione, conservazione dati, email assente e utente senza privilegi); TypeScript senza errori/avvisi. Il ripristino sul database reale deve essere eseguito dall’operatore nel proprio terminale sicuro.
