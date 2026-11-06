@@ -174,3 +174,11 @@ Il comando elimina solo dati oltre la soglia prevista e produce conteggi, senza 
 - 19 controlli sulle nuove Functions compilate: metodi, origini, indisponibilità sicura e configurazione della pianificazione.
 - TypeScript: 83 file, nessun errore/avviso/hint. Build Netlify completata.
 - Nessuna connessione Neon remota, migrazione su database dell’utente, invio di dati personali reali o esecuzione cron su Netlify effettuata. Rimangono il collaudo del deploy HTTPS e le verifiche manuali di accessibilità.
+
+## Diagnostica accesso non disponibile
+
+La Function `auth` registra un evento JSON `auth_failure` con `reference`, `stage` e un codice scelto da un elenco fisso. La risposta pubblica conserva il messaggio generico e contiene soltanto il riferimento, non la causa interna. Non vengono registrati credenziali, URL del database, cookie, corpi delle richieste, query o messaggi originali delle eccezioni.
+
+Dopo un deploy aggiornato, aprire `/api/auth/ok`. In caso di 503, cercare il riferimento in Netlify → Functions → auth → Logs. Condividere solo `code` e `stage`, non log completi. Codici `DATABASE_URL_MISSING`, `AUTH_SECRET_MISSING`, `AUTH_SECRET_TOO_SHORT`, `AUTH_URL_MISSING` e `AUTH_URL_INVALID` distinguono problemi delle variabili runtime. `DATABASE_SCHEMA_MISSING`/`DATABASE_SCHEMA_OUTDATED` indicano migrazioni da verificare nel database/branch effettivamente usato dalla Function; `DATABASE_AUTH_FAILED`, `DATABASE_NETWORK_ERROR` e `CLIENT_IP_UNAVAILABLE` guidano le diagnosi successive senza esporre i valori. Un codice non dimostra da solo che il collegamento remoto sia stato riparato.
+
+Verifiche della modifica: 14 test autenticazione/diagnostica passati, typecheck senza errori/avvisi e build completata; Function compilata verificata nei rami di configurazione mancante/invalida e contesto IP non valido, controllando che valori sensibili non compaiano nei log o nelle risposte.

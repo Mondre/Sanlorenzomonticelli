@@ -1,4 +1,5 @@
 import {test} from 'node:test';
+import {configurationIssue,safeAuthFailure,AuthSetupError} from '../src/server/auth/diagnostics.ts';
 import assert from 'node:assert/strict';
 import {readFile,readdir} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
@@ -120,4 +121,24 @@ test('Better Auth su PostgreSQL: login, cookie, sessioni, CSRF e rate limiting',
    assert.ok((await db.select().from(schema.authRateLimits)).length>0);
   });
  }finally{await pg.close();}
+});
+
+test('diagnostica configurazione: codici distinti, senza restituire valori',()=>{
+ const env={DATABASE_URL:'postgresql://test:private-password@db.example.test/db',BETTER_AUTH_SECRET:'test-only-secret-for-config-validation-0000',BETTER_AUTH_URL:origin};
+ assert.equal(configurationIssue(env),null);
+ assert.equal(configurationIssue({...env,DATABASE_URL:undefined}),'DATABASE_URL_MISSING');
+ assert.equal(configurationIssue({...env,DATABASE_URL:'not-a-connection-string'}),'DATABASE_URL_INVALID');
+ assert.equal(configurationIssue({...env,BETTER_AUTH_SECRET:undefined}),'AUTH_SECRET_MISSING');
+ assert.equal(configurationIssue({...env,BETTER_AUTH_SECRET:'short'}),'AUTH_SECRET_TOO_SHORT');
+ assert.equal(configurationIssue({...env,BETTER_AUTH_URL:undefined}),'AUTH_URL_MISSING');
+ assert.equal(configurationIssue({...env,BETTER_AUTH_URL:'club.example'}),'AUTH_URL_INVALID');
+ assert.equal(configurationIssue({...env,BETTER_AUTH_URL:origin+'/admin/'}),'AUTH_URL_INVALID');
+});
+test('classificazione errori non espone query, password o messaggi originali',()=>{
+ const sensitive='postgresql://test:private-password@db.example.test/db';
+ assert.equal(safeAuthFailure(new AuthSetupError('AUTH_URL_INVALID')),'AUTH_URL_INVALID');
+ assert.equal(safeAuthFailure(new Error(sensitive,{cause:{code:'28P01',message:sensitive}})),'DATABASE_AUTH_FAILED');
+ assert.equal(safeAuthFailure({cause:{code:'42P01',query:sensitive}}),'DATABASE_SCHEMA_MISSING');
+ assert.equal(safeAuthFailure(['query failed',{code:'42703',params:[sensitive]}]),'DATABASE_SCHEMA_OUTDATED');
+ const unknown=safeAuthFailure(new Error(sensitive));assert.equal(unknown,'AUTH_INTERNAL_ERROR');assert.ok(!unknown.includes('private-password'));
 });

@@ -1,8 +1,9 @@
+import {safeAuthFailure,type AuthFailureCode} from './diagnostics.ts';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { users, sessions, accounts, verifications, authRateLimits } from '../db/schema.ts';
 import type { AuthConfiguration } from './config.ts';
-export function createAuth(db: Parameters<typeof drizzleAdapter>[0], config: AuthConfiguration) {
+export function createAuth(db: Parameters<typeof drizzleAdapter>[0], config: AuthConfiguration, report?:(code:AuthFailureCode)=>void) {
  return betterAuth({
   appName:'San Lorenzo Monticelli', baseURL:config.origin,basePath:'/api/auth',secret:config.secret,
   trustedOrigins:[config.origin],
@@ -11,6 +12,6 @@ export function createAuth(db: Parameters<typeof drizzleAdapter>[0], config: Aut
   session:{expiresIn:60*60*8,updateAge:60*60,cookieCache:{enabled:false}},
   rateLimit:{enabled:true,storage:'database',window:60,max:60,customRules:{'/sign-in/email':{window:60,max:5}}},
   advanced:{useSecureCookies:config.origin.startsWith('https:'),defaultCookieAttributes:{httpOnly:true,sameSite:'lax'},ipAddress:{ipAddressHeaders:['x-portal-client-ip']}},
-  logger:{disabled:true},
+  logger:report?{level:'error',log:(_level,message,...args)=>report(safeAuthFailure([message,...args]))}:{disabled:true},
  });
 }
