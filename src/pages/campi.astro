@@ -1,0 +1,12 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import {database} from '../server/db/client';
+import {clubContentService} from '../server/club-content/service';
+import {pageFailure} from '../server/content/public';
+import {mapsLink} from '../shared/club-content';
+export const prerender=false;
+let venues:Awaited<ReturnType<ReturnType<typeof clubContentService>['publicVenues']>>=[];
+let error:ReturnType<typeof pageFailure>|undefined;
+try{venues=await clubContentService(database()).publicVenues();}catch(e){error=pageFailure(e);Astro.response.status=error.status;}
+---
+<BaseLayout title="Campi sportivi"><section class="container section"><p class="eyebrow">CI VEDIAMO IN CAMPO</p><h1 class="page-title">Dove si gioca.</h1><p class="lead">Indirizzi e informazioni utili per raggiungere i campi sportivi.</p>{error?<p class="notice" role="status">{error.message}</p>:venues.length?<div class="venues-grid">{venues.map(venue=><article class="panel venue-card" id={'campo-'+venue.id}><p class="eyebrow">{venue.city}</p><h2>{venue.name}</h2><address>{venue.address}<br/>{venue.city}</address>{venue.directions&&<><h3>Come arrivare</h3><p class="preserve-lines">{venue.directions}</p></>}{venue.parking&&<><h3>Parcheggio</h3><p class="preserve-lines">{venue.parking}</p></>}{mapsLink(venue)&&<a class="button button-secondary" href={mapsLink(venue)!} target="_blank" rel="noopener noreferrer">Indicazioni Google Maps ↗</a>}</article>)}</div>:<p class="empty-state">Le informazioni sugli impianti saranno pubblicate qui.</p>}</section></BaseLayout>

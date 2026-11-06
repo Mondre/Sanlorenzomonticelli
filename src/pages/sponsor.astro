@@ -1,0 +1,12 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SponsorCard from '../components/public/SponsorCard';
+import {database} from '../server/db/client';
+import {clubContentService} from '../server/club-content/service';
+import {pageFailure} from '../server/content/public';
+export const prerender=false;
+let sponsors:Awaited<ReturnType<ReturnType<typeof clubContentService>['publicSponsors']>>=[];
+let error:ReturnType<typeof pageFailure>|undefined;
+try{sponsors=await clubContentService(database()).publicSponsors();}catch(e){error=pageFailure(e);Astro.response.status=error.status;}
+---
+<BaseLayout title="Sponsor e partner"><section class="container section"><p class="eyebrow">CHI CREDE NEL NOSTRO CALCIO</p><h1 class="page-title">Insieme, più lontano.</h1><p class="lead">Le aziende e i partner che sostengono la società e condividono il valore dello sport nella nostra comunità.</p>{error?<p class="notice" role="status">{error.message}</p>:sponsors.length?<div class="values-grid">{sponsors.map(sponsor=><SponsorCard sponsor={sponsor}/>)}</div>:<p class="empty-state">Gli sponsor e i partner saranno pubblicati qui.</p>}<div class="panel club-callout"><h2>Vuoi sostenere la società?</h2><p>Scrivi alla segreteria per conoscere le possibilità di collaborazione.</p><a class="button button-secondary" href="/richieste">Contatta la società</a></div></section></BaseLayout>

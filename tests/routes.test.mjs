@@ -42,7 +42,7 @@ test('area riservata renderizza solo il contenitore pubblico e noindex',async()=
  assert.doesNotMatch(html,/postgres(?:ql)?:\/\//);
 });
 
-for(const path of ['/notizie','/partite','/classifiche']){
+for(const path of ['/notizie','/partite','/classifiche','/sponsor','/campi']){
  test(`pagina pubblica ${path}: gestisce il database non configurato senza dettagli interni`,async()=>{
   const response=await fetch(new URL(path,base));
   assert.equal(response.status,process.env.DATABASE_URL?200:503);

@@ -129,7 +129,7 @@ Il seed è esplicito, transazionale, vietato con `CONTEXT=production` o `NODE_EN
 
 ## Cosa rimane
 
-Upload immagini/storage e rich text sicuro; gestione avanzata e modifica dei singoli collaboratori, CRUD giocatori adulti con consensi e anonimizzazione dei profili; sponsor; gallerie; timeline degli eventi e formazioni; esportazione ICS; completamento/revisione delle informative societarie e verifiche manuali di accessibilità. L’importazione automatica di calendari e risultati richiede la fonte ufficiale e la verifica delle sue API/licenze/autorizzazioni: nessuno scraping è attivo.
+Upload immagini/storage e rich text sicuro; gestione avanzata e modifica dei singoli collaboratori, CRUD giocatori adulti con consensi e anonimizzazione dei profili; gallerie; timeline degli eventi e formazioni; esportazione ICS; completamento/revisione delle informative societarie e verifiche manuali di accessibilità. L’importazione automatica di calendari e risultati richiede la fonte ufficiale e la verifica delle sue API/licenze/autorizzazioni: nessuno scraping è attivo.
 
 Gli avvisi di dipendenze bassi/moderati noti nelle transitive Netlify/Drizzle sono documentati nelle verifiche precedenti; riesaminare `npm audit` prima della pubblicazione. Non eseguire downgrade incompatibili con `--force` solo per silenziare l’audit.
 
@@ -214,3 +214,14 @@ Creazioni, modifiche e reset amministrativi utilizzano SQL parametrizzato e CTE 
 `src/shared/users.ts`; `src/server/users/access.ts`, `service.ts`; `src/components/admin/UsersManager.tsx`, `ChangePassword.tsx`; `netlify/functions/admin-users.ts`; `drizzle/0004_protect_last_super_admin.sql` e metadati; `tests/users.test.mjs`. Aggiornati integrazione Better Auth, dashboard, stili e script di test.
 
 Verifiche: 79 test database/autenticazione/dominio passati; 14 test HTTP passati; 4 controlli della Function compilata (metodi, origine e indisponibilità senza configurazione); TypeScript su 94 file senza errori/avvisi e build Netlify completata. Non sono stati creati, disattivati o modificati account reali nel database dell’utente durante queste verifiche. Applicazione della migrazione e collaudo sul sito dell’utente restano da eseguire nell’ambiente di produzione.
+
+
+### Sponsor e campi sportivi
+
+Gli amministratori possono gestire **Sponsor e partner** e **Campi sportivi** nel pannello. Le pagine pubbliche `/sponsor` e `/campi` leggono i dati reali da Neon; la home mostra fino a sei sponsor attivi, ordinati secondo la priorità scelta. Uno sponsor può essere disattivato senza cancellarlo. I link ai siti devono essere HTTPS pubblici.
+
+I loghi sono selezionabili dai media già registrati con consenso alla pubblicazione, formato PNG/JPEG/WebP/AVIF e URL HTTPS senza parametri. La revoca del consenso nasconde il logo nelle letture successive. In assenza di immagini si mostra il nome; questa sezione non introduce upload o storage. Verificare il fornitore dei media nella documentazione privacy prima di usare immagini esterne.
+
+Per ogni campo si gestiscono nome, indirizzo, città, indicazioni e parcheggio. Il collegamento Google Maps viene costruito dall’indirizzo; un campo associato a partite non può essere eliminato. L’API `/api/admin/club-content?kind=sponsors|venues` supporta GET/POST/PUT/DELETE, paginazione, controllo di origine, audit atomico e controllo delle modifiche concorrenti tramite versione PostgreSQL `xmin`. Editor e responsabili di categoria non accedono a queste funzioni.
+
+Si usano le tabelle esistenti, senza nuove migrazioni. Verifiche del modulo in `tests/club-content.test.mjs` con database PGlite temporaneo, senza accesso al database pubblico. L’importazione da Tuttocampo rimane sospesa in attesa di un canale autorizzato e accessibile.
