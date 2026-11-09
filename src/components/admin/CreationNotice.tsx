@@ -1,0 +1,2 @@
+interface Props{message:string;onSetup?:()=>void}
+export default function CreationNotice({message,onSetup}:Props){return <aside className="notice creation-notice"><p>{message}</p>{onSetup?<button className="button" type="button" onClick={onSetup}>Apri Configurazione sportiva</button>:<p>Chiedi a un amministratore di completare la configurazione e verificare le categorie assegnate al tuo account.</p>}</aside>;}

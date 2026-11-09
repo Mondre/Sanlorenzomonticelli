@@ -266,3 +266,5 @@ Il modulo non dipende da Romagna Sport e non effettua chiamate esterne. Legge so
 - `npm run test:backup-drill`: prova di recupero su PostgreSQL 18 temporaneo in Docker.
 
 Istruzioni complete in [docs/operations.md](docs/operations.md) e [docs/collaudo.md](docs/collaudo.md). Non sono attivati backup automatici o destinazioni di archiviazione esterne. Il primo backup reale e il collaudo autenticato dello storage Netlify restano operazioni da eseguire con gli accessi del proprietario; i test di sviluppo non li sostituiscono.
+
+La Configurazione sportiva permette anche di creare una stagione indipendente dalle competizioni. Quando mancano requisiti per una creazione, Notizie, Squadre e staff e Partite e risultati mostrano il motivo e il percorso di configurazione, senza rimuovere i controlli dei permessi. Vedi `docs/collaudo.md` per il flusso con un database vuoto.

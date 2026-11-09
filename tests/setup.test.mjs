@@ -48,3 +48,25 @@ test('configurazione iniziale senza seed: categorie, stagione, competizione e ca
   });
  }finally{await pg.close();}
 });
+
+test('avvio senza competizione: categoria per le notizie, stagione autonoma per squadre e staff',async()=>{
+ const {teamService}=await import('../src/server/teams/service.ts');
+ const pg=new PGlite();try{
+  for(const f of (await readdir(new URL('../drizzle/',import.meta.url))).filter(f=>f.endsWith('.sql')).sort())await pg.exec(await readFile(new URL('../drizzle/'+f,import.meta.url),'utf8'));
+  await pg.query("INSERT INTO users(id,name,email) VALUES ('setup-user','Test Admin','setup@example.test')");
+  const db=drizzle(pg),setup=setupService(db),content=contentService(db),teams=teamService(db);
+  assert.equal((await content.options(admin.grants)).categories.length,0);assert.equal((await teams.list(admin)).options.seasons.length,0);
+  const category=(await setup.createCategory(admin,{name:'Prima Squadra',sortOrder:0,active:true,isYouth:false})).id;
+  const options=await content.options(admin.grants);assert.equal(options.categories[0].news,true);assert.equal(options.competitions.length,0);
+  await content.createNews(admin,{categoryId:category,title:'Prima notizia della società',excerpt:'Notizia senza dipendere da una competizione.',body:'Testo della prima notizia, senza stagioni e avversarie ancora configurate.',status:'draft'});
+  const season=(await setup.createSeason(admin,{name:'2026/27',startsOn:'2026-07-01',endsOn:'2027-06-30'})).id;
+  const team=(await teams.create(admin,{name:'San Lorenzo Monticelli',categoryId:category,seasonId:season,description:null,trainingSchedule:null})).id;
+  await teams.addStaff(admin,{teamId:team,name:'Collaboratore di prova',role:'Allenatore',publish:false});
+  assert.equal((await setup.catalog(admin)).competitions.length,0);assert.equal((await teams.list(admin)).items.length,1);
+  for(const role of ['editor','category_manager'])await assert.rejects(setup.createSeason({userId:admin.userId,grants:[{role,categoryId:category}]},{name:'2027/28',startsOn:'2027-07-01',endsOn:'2028-06-30'}),e=>e.status===403);
+  await assert.rejects(setup.createSeason(admin,{name:'Date errate',startsOn:'2027-07-01',endsOn:'2026-06-30'}));
+  await assert.rejects(setup.createSeason(admin,{name:'2026/27',startsOn:'2026-07-01',endsOn:'2027-06-30'}));
+  assert.equal((await setup.catalog(admin)).seasons.length,1);
+  assert.equal((await pg.query("SELECT count(*)::integer AS n FROM audit_logs WHERE action='season.create'")).rows[0].n,1);
+ }finally{await pg.close();}
+});

@@ -2,7 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {sql} from 'drizzle-orm';
 import {z} from 'zod';
 import {can,type Grant} from '../auth/permissions.ts';
-import {categoryCreate,categoryUpdate,competitionCreate,venueCreate} from '../../shared/setup.ts';
+import {categoryCreate,categoryUpdate,competitionCreate,venueCreate,seasonCreate} from '../../shared/setup.ts';
 import {rows,type Executor} from './service.ts';
 import {ContentError} from './errors.ts';
 interface Actor{userId:string;grants:Grant[]}
@@ -16,6 +16,7 @@ export function setupService(db:Executor){return {
   rows(db,sql`SELECT c.id,c.name,s.name AS season FROM competitions c JOIN seasons s ON s.id=c.season_id ORDER BY s.starts_on DESC,c.name`,z.object({id:z.uuid(),name:z.string(),season:z.string()})),
   rows(db,sql`SELECT id,name,city FROM venues ORDER BY name`,z.object({id:z.uuid(),name:z.string(),city:z.string()})),
  ]);return {categories,seasons,competitions,venues};},
+ async createSeason(actor:Actor,input:unknown){permitted(actor);const data=seasonCreate.parse(input);const [saved]=await rows(db,sql`WITH created AS (INSERT INTO seasons(id,name,starts_on,ends_on) VALUES (${randomUUID()}::uuid,${data.name},${data.startsOn}::date,${data.endsOn}::date) RETURNING id), logged AS (INSERT INTO audit_logs(actor_id,action,entity_type,entity_id) SELECT ${actor.userId},'season.create','seasons',id::text FROM created) SELECT id FROM created`,idRow);return saved;},
  async createCategory(actor:Actor,input:unknown){permitted(actor);const data=categoryCreate.parse(input),id=randomUUID();const [row]=await rows(db,sql`WITH created AS (INSERT INTO categories(id,name,slug,sort_order,active,is_youth) VALUES (${id}::uuid,${data.name},${slug(data.name)},${data.sortOrder},${data.active},${data.isYouth}) RETURNING id), logged AS (INSERT INTO audit_logs(actor_id,action,entity_type,entity_id) SELECT ${actor.userId},'category.create','categories',id::text FROM created) SELECT id FROM created`,idRow);return row;},
  async updateCategory(actor:Actor,input:unknown){permitted(actor);const data=categoryUpdate.parse(input);const [row]=await rows(db,sql`WITH updated AS (UPDATE categories SET name=${data.name},sort_order=${data.sortOrder},active=${data.active},is_youth=${data.isYouth} WHERE id=${data.id}::uuid RETURNING id), logged AS (INSERT INTO audit_logs(actor_id,action,entity_type,entity_id) SELECT ${actor.userId},'category.update','categories',id::text FROM updated) SELECT id FROM updated`,idRow);if(!row)throw new ContentError(404,'Categoria non trovata.');return row;},
  async createVenue(actor:Actor,input:unknown){permitted(actor);const data=venueCreate.parse(input),id=randomUUID();const [row]=await rows(db,sql`WITH created AS (INSERT INTO venues(id,name,address,city) VALUES (${id}::uuid,${data.name},${data.address},${data.city}) RETURNING id), logged AS (INSERT INTO audit_logs(actor_id,action,entity_type,entity_id) SELECT ${actor.userId},'venue.create','venues',id::text FROM created) SELECT id FROM created`,idRow);return row;},

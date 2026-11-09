@@ -12,8 +12,8 @@ export default async function handler(request:Request){
   if(request.method!=='GET')mutationOrigin(request,process.env.BETTER_AUTH_URL);
   const {session,grants}=await authorize(request,'categories.write'),actor={userId:session.user.id,grants},service=setupService(database());
   if(request.method==='GET')return json(await service.catalog(actor));
-  const input=z.object({kind:z.enum(['category','competition','venue']),data:z.unknown()}).strict().parse(await readInput(request));
+  const input=z.object({kind:z.enum(['category','competition','venue','season']),data:z.unknown()}).strict().parse(await readInput(request));
   if(request.method==='PUT'){if(input.kind!=='category')return json({error:{message:'Operazione non supportata.'}},405);return json(await service.updateCategory(actor,input.data));}
-  return json(await (input.kind==='category'?service.createCategory(actor,input.data):input.kind==='competition'?service.createCompetition(actor,input.data):service.createVenue(actor,input.data)),201);
+  return json(await (input.kind==='category'?service.createCategory(actor,input.data):input.kind==='competition'?service.createCompetition(actor,input.data):input.kind==='season'?service.createSeason(actor,input.data):service.createVenue(actor,input.data)),201);
  }catch(error){return contentFailure(error);}
 }
