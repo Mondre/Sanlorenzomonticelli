@@ -4,9 +4,9 @@ publish = "dist"
 
 [build.environment]
 NODE_VERSION = "24"
-# Public canonical URL, intentionally present in HTML, calendar links and source.
+# Public site/auth origins, intentionally present in links, source and generated HTML.
 # Keep secret scanning enabled for every other variable, including DB/auth credentials.
-SECRETS_SCAN_OMIT_KEYS = "SITE_URL"
+SECRETS_SCAN_OMIT_KEYS = "SITE_URL,BETTER_AUTH_URL"
 
 [functions]
 directory = "netlify/functions"
