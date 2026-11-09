@@ -268,3 +268,6 @@ Il modulo non dipende da Romagna Sport e non effettua chiamate esterne. Legge so
 Istruzioni complete in [docs/operations.md](docs/operations.md) e [docs/collaudo.md](docs/collaudo.md). Non sono attivati backup automatici o destinazioni di archiviazione esterne. Il primo backup reale e il collaudo autenticato dello storage Netlify restano operazioni da eseguire con gli accessi del proprietario; i test di sviluppo non li sostituiscono.
 
 La Configurazione sportiva permette anche di creare una stagione indipendente dalle competizioni. Quando mancano requisiti per una creazione, Notizie, Squadre e staff e Partite e risultati mostrano il motivo e il percorso di configurazione, senza rimuovere i controlli dei permessi. Vedi `docs/collaudo.md` per il flusso con un database vuoto.
+
+
+`SITE_URL` è l’indirizzo pubblico usato per canonical, link e calendari: è previsto che compaia nei file e nell’HTML generato. `netlify.toml` esclude soltanto questa chiave dal controllo dei valori segreti con `SECRETS_SCAN_OMIT_KEYS = "SITE_URL"`. La scansione rimane attiva per le altre variabili; non disabilitare lo scanner e non aggiungere `DATABASE_URL` o `BETTER_AUTH_SECRET` alle esclusioni. Nel pannello Netlify l’origine pubblica non richiede la classificazione come segreto.
